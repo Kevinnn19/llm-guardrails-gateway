@@ -1,14 +1,17 @@
-"""Provider orchestration for sequential provider execution.
+"""Provider orchestration with automatic failover for recoverable errors.
 
-The orchestrator is intentionally simple: it accepts a provider factory and a
-list of provider configurations, then tries each provider in order until one
-returns a successful response. Fallback policy and retry behavior are out of
-scope for this initial implementation.
+The orchestrator accepts a provider factory and an ordered list of provider
+configurations. It tries each provider sequentially, returning on the first
+successful response. Recoverable provider failures (timeouts, rate limits,
+quota exhaustion, and transient network issues) trigger a move to the next
+configured provider. Non-recoverable failures stop the orchestration
+immediately.
 """
 
 from collections.abc import Sequence
 
 from app.core.exceptions import ProviderError
+from app.core.logging import logger
 from app.providers.base import AbstractLLMProvider
 from app.providers.factory import ProviderFactory
 from app.providers.models import ProviderRequest, ProviderResponse
@@ -16,6 +19,15 @@ from app.providers.models import ProviderRequest, ProviderResponse
 
 class ProviderOrchestrator:
     """Coordinate sequential provider selection and execution."""
+
+    _RECOVERABLE_FAILURE_MARKERS = (
+        "timeout",
+        "rate limit",
+        "quota",
+        "temporar",
+        "network",
+        "connection",
+    )
 
     def __init__(self, provider_factory: ProviderFactory) -> None:
         """Create an orchestrator bound to a provider factory.
@@ -48,21 +60,41 @@ class ProviderOrchestrator:
         Raises:
             ProviderError: If every configured provider fails.
         """
-        last_error: ProviderError | None = None
+        failures: list[tuple[str, str]] = []
 
         for provider_config in provider_configs:
             model = provider_config.get("model")
             if not isinstance(model, str) or not model:
-                raise ValueError("Each provider configuration must include a non-empty model")
+                raise ValueError(
+                    "Each provider configuration must include a non-empty model"
+                )
 
             provider: AbstractLLMProvider = self._provider_factory.get_provider(model)
 
             try:
                 return await provider.complete(request.model_copy(update={"model": model}))
             except ProviderError as exc:
-                last_error = exc
+                reason = str(exc)
+                failures.append((model, reason))
+                if self._is_recoverable_failure(reason):
+                    logger.warning(
+                        "provider_failed_rolling_over model={} reason={}",
+                        model,
+                        reason,
+                    )
+                    continue
 
-        if last_error is not None:
-            raise last_error
+                raise ProviderError(
+                    f"Provider '{model}' failed with non-recoverable error: {reason}"
+                ) from exc
+
+        if failures:
+            details = "; ".join(f"{model}: {reason}" for model, reason in failures)
+            raise ProviderError(f"All providers failed: {details}")
 
         raise ProviderError("No providers were configured for orchestration")
+
+    @classmethod
+    def _is_recoverable_failure(cls, reason: str) -> bool:
+        lowered = reason.lower()
+        return any(marker in lowered for marker in cls._RECOVERABLE_FAILURE_MARKERS)

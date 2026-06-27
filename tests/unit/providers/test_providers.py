@@ -17,6 +17,7 @@ from app.core.exceptions import ProviderError, ProviderNotFoundError
 from app.providers.factory import ProviderFactory
 from app.providers.litellm_provider import LiteLLMProvider, _extract_provider
 from app.providers.models import Message, ProviderRequest, ProviderResponse
+from app.providers.provider_orchestrator import ProviderOrchestrator
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -233,6 +234,72 @@ class TestProviderFactory:
         factory = ProviderFactory()
         provider = factory.get_provider("openai/gpt-4o")
         assert isinstance(provider, LiteLLMProvider)
+
+
+class TestProviderOrchestrator:
+    @pytest.mark.asyncio
+    async def test_fails_over_for_recoverable_errors(self) -> None:
+        factory = MagicMock()
+        first_provider = AsyncMock()
+        first_provider.complete.side_effect = ProviderError("Rate limit exceeded")
+        second_provider = AsyncMock()
+        second_provider.complete.return_value = ProviderResponse(
+            content="fallback response",
+            model="gemini/gemini-2.5-flash",
+            provider="gemini",
+        )
+        factory.get_provider.side_effect = [first_provider, second_provider]
+
+        orchestrator = ProviderOrchestrator(factory)
+        result = await orchestrator.execute(
+            _make_request(),
+            [{"model": "openai/gpt-4o"}, {"model": "gemini/gemini-2.5-flash"}],
+        )
+
+        assert result.content == "fallback response"
+        assert first_provider.complete.await_count == 1
+        assert second_provider.complete.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_stops_immediately_for_non_recoverable_errors(self) -> None:
+        factory = MagicMock()
+        first_provider = AsyncMock()
+        first_provider.complete.side_effect = ProviderError("Authentication failed")
+        second_provider = AsyncMock()
+        second_provider.complete.return_value = ProviderResponse(
+            content="should not be used",
+            model="gemini/gemini-2.5-flash",
+            provider="gemini",
+        )
+        factory.get_provider.side_effect = [first_provider, second_provider]
+
+        orchestrator = ProviderOrchestrator(factory)
+
+        with pytest.raises(ProviderError, match="non-recoverable"):
+            await orchestrator.execute(
+                _make_request(),
+                [{"model": "openai/gpt-4o"}, {"model": "gemini/gemini-2.5-flash"}],
+            )
+
+        assert first_provider.complete.await_count == 1
+        assert second_provider.complete.await_count == 0
+
+    @pytest.mark.asyncio
+    async def test_raises_aggregated_error_when_all_fail(self) -> None:
+        factory = MagicMock()
+        first_provider = AsyncMock()
+        first_provider.complete.side_effect = ProviderError("timeout exceeded")
+        second_provider = AsyncMock()
+        second_provider.complete.side_effect = ProviderError("temporary network error")
+        factory.get_provider.side_effect = [first_provider, second_provider]
+
+        orchestrator = ProviderOrchestrator(factory)
+
+        with pytest.raises(ProviderError, match="All providers failed"):
+            await orchestrator.execute(
+                _make_request(),
+                [{"model": "openai/gpt-4o"}, {"model": "gemini/gemini-2.5-flash"}],
+            )
 
     def test_anthropic_returns_litellm_provider(self) -> None:
         provider = ProviderFactory().get_provider(
