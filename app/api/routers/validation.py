@@ -1,7 +1,7 @@
 """Validation endpoints for standalone input/output guardrail checks."""
 
 from fastapi import APIRouter, Depends
-
+from app.core.container import Container
 from app.api.dependencies import get_di_container, get_request_id_header
 from app.guardrails.base import GuardrailContext
 from app.schemas.requests import ValidateInputRequest, ValidateOutputRequest
@@ -31,7 +31,7 @@ def _to_response(result) -> ValidationResponse:  # type: ignore[no-untyped-def]
 async def validate_input(
     request: ValidateInputRequest,
     request_id: str = Depends(get_request_id_header),
-    container=Depends(get_di_container),
+    container: Container = Depends(get_di_container),
 ) -> ValidationResponse:
     """Run input guardrails against a prompt without calling an LLM."""
     svc = container.input_validation_service
@@ -47,7 +47,7 @@ async def validate_input(
 async def validate_output(
     request: ValidateOutputRequest,
     request_id: str = Depends(get_request_id_header),
-    container=Depends(get_di_container),
+    container: Container = Depends(get_di_container),
 ) -> ValidationResponse:
     """Run output guardrails against an LLM response."""
     svc = container.output_validation_service

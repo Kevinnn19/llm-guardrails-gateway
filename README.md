@@ -267,6 +267,106 @@ Files are watched for changes and reloaded automatically. You can also trigger a
 
 ---
 
+## Multi-Provider Failover
+
+The gateway can route requests across multiple providers in a controlled and observable manner. Provider orchestration is driven by policy configuration and executed through a dedicated strategy layer, allowing the gateway to select the provider order without changing application code.
+
+### Provider orchestration
+
+Each request is evaluated against the active policy and then dispatched through the configured provider chain. The current implementation supports a sequential strategy, which tries providers in the order defined by policy. This design keeps the orchestration flow simple while remaining extensible for future strategies such as random, lowest-latency, or cheapest selection.
+
+### Automatic failover
+
+If a provider returns a recoverable error such as a timeout, rate limit, quota issue, or transient network failure, the gateway automatically advances to the next configured provider. Non-recoverable errors, such as authentication failures, stop the flow immediately and surface an error to the caller.
+
+### YAML configuration
+
+Provider failover is configured directly in policy YAML. The `provider` block now supports a `strategy` field plus `primary` and `fallbacks` entries. The default behavior is `sequential`, which preserves backward compatibility while enabling failover chains.
+
+### Retry behaviour
+
+The gateway retains the existing retry pipeline for output validation. When a provider call fails before a response is produced, the orchestrator may move to the next provider. If response validation later fails, the retry engine can continue using the configured retry policy and fallback messaging.
+
+### Architecture diagram
+
+```mermaid
+flowchart LR
+    A[Client Request] --> B[GatewayService]
+    B --> C[Policy Loader]
+    C --> D[Input Guardrails]
+    D --> E[Provider Orchestrator]
+    E --> F[Primary Provider]
+    E --> G[Fallback Provider 1]
+    E --> H[Fallback Provider 2]
+    F --> I[Output Guardrails]
+    G --> I
+    H --> I
+    I --> J[Retry Engine]
+    J --> K[Final Response]
+```
+
+### Example API response
+
+When failover is used, the response includes metadata that makes the execution path observable:
+
+```json
+{
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "response": "Fallback response",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "risk_score": 0.0,
+  "violations": [],
+  "retries": 0,
+  "fallback_used": true,
+  "attempts": 2,
+  "provider_chain": ["openai", "gemini"],
+  "latency_ms": 412.3,
+  "input_valid": true,
+  "output_valid": true
+}
+```
+
+### Example policy configuration
+
+```yaml
+id: multi-provider
+version: "1.0"
+description: "Sequential failover policy for production workloads"
+
+provider:
+  strategy: sequential
+  primary:
+    name: openai
+    model: gpt-4o-mini
+    timeout_seconds: 30
+  fallbacks:
+    - name: gemini
+      model: gemini-2.5-flash
+      timeout_seconds: 30
+    - name: deepseek
+      model: deepseek-chat
+      timeout_seconds: 30
+
+input_guardrails:
+  prompt_injection:
+    enabled: true
+    action: block
+
+output_guardrails:
+  toxicity:
+    enabled: true
+    threshold: 0.85
+    action: block
+
+retry:
+  max_attempts: 3
+  strategy: correct_and_retry
+  fallback_message: "I’m unable to process this request safely."
+```
+
+---
+
 ## Environment Variables
 
 | Variable | Default | Description |

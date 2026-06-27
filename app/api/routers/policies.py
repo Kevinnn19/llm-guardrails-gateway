@@ -1,7 +1,7 @@
 """Policy management endpoints."""
 
 from fastapi import APIRouter, Depends
-
+from app.core.container import Container
 from app.api.dependencies import get_di_container, get_request_id_header
 from app.schemas.requests import ReloadPolicyRequest
 from app.schemas.responses import PoliciesResponse, PolicySummary, ReloadPolicyResponse
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/policies", tags=["policies"])
 @router.get("", response_model=PoliciesResponse)
 async def list_policies(
     request_id: str = Depends(get_request_id_header),
-    container=Depends(get_di_container),
+    container: Container = Depends(get_di_container),
 ) -> PoliciesResponse:
     """List all loaded policies and their active guardrail configuration."""
     policies = container.policy_service.list_all()
