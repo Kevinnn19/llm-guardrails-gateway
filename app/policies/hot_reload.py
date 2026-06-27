@@ -13,7 +13,12 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 
-from watchdog.events import FileCreatedEvent, FileModifiedEvent, FileSystemEvent, FileSystemEventHandler
+from watchdog.events import (
+    FileCreatedEvent,
+    FileModifiedEvent,
+    FileSystemEvent,
+    FileSystemEventHandler,
+)
 from watchdog.observers import Observer
 
 from app.core.logging import logger

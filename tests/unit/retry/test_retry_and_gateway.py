@@ -1,7 +1,7 @@
 """Unit tests for PromptCorrector, RetryEngine, and GatewayService."""
 
 import textwrap
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import yaml
@@ -14,13 +14,14 @@ from app.retry.engine import RetryContext, RetryEngine
 from app.retry.prompt_corrector import PromptCorrector
 from app.schemas.requests import ChatRequest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_policy(max_attempts: int = 2, action: str = "block") -> Policy:
-    raw = yaml.safe_load(textwrap.dedent(f"""\
+    raw = yaml.safe_load(
+        textwrap.dedent(f"""\
         id: test
         provider:
           name: openai
@@ -38,7 +39,8 @@ def _make_policy(max_attempts: int = 2, action: str = "block") -> Policy:
         retry:
           max_attempts: {max_attempts}
           fallback_message: "Sorry, I cannot help."
-    """))
+    """)
+    )
     return Policy.model_validate(raw)
 
 
@@ -72,6 +74,7 @@ def _mock_provider(content: str = "Hello world") -> AsyncMock:
 # PromptCorrector
 # ---------------------------------------------------------------------------
 
+
 class TestPromptCorrector:
     def setup_method(self) -> None:
         self.corrector = PromptCorrector()
@@ -104,7 +107,13 @@ class TestPromptCorrector:
         assert "API keys" in result or "credentials" in result
 
     def test_unknown_code_uses_fallback(self) -> None:
-        v = Violation(guardrail="X", code="unknown_code_xyz", message="test", severity="low", score=0.5)
+        v = Violation(
+            guardrail="X",
+            code="unknown_code_xyz",
+            message="test",
+            severity="low",
+            score=0.5,
+        )
         result = self.corrector.build_correction("prompt", [v])
         assert "compliant" in result.lower()
 
@@ -116,6 +125,7 @@ class TestPromptCorrector:
 # ---------------------------------------------------------------------------
 # RetryEngine
 # ---------------------------------------------------------------------------
+
 
 class TestRetryEngine:
     def _make_engine(
@@ -202,7 +212,9 @@ class TestRetryEngine:
         await engine.run(ctx, provider)
 
         # Second call should use a corrected prompt (containing "[Correction")
-        second_call_messages = provider.complete.call_args_list[1][1]["request"].messages
+        second_call_messages = provider.complete.call_args_list[1][1][
+            "request"
+        ].messages
         last_user_message = next(
             m for m in reversed(second_call_messages) if m.role == "user"
         )
@@ -212,8 +224,13 @@ class TestRetryEngine:
     async def test_conversation_history_preserved(self) -> None:
         engine, _, _ = self._make_engine(output_passes=True)
         policy = _make_policy(max_attempts=2)
-        history = [Message(role="user", content="Hi"), Message(role="assistant", content="Hello")]
-        ctx = RetryContext(prompt="Follow-up", policy=policy, conversation_history=history)
+        history = [
+            Message(role="user", content="Hi"),
+            Message(role="assistant", content="Hello"),
+        ]
+        ctx = RetryContext(
+            prompt="Follow-up", policy=policy, conversation_history=history
+        )
         provider = _mock_provider()
 
         await engine.run(ctx, provider)
@@ -226,6 +243,7 @@ class TestRetryEngine:
 # ---------------------------------------------------------------------------
 # GatewayService
 # ---------------------------------------------------------------------------
+
 
 class TestGatewayService:
     """Tests for GatewayService.chat() using mocked dependencies."""
@@ -252,7 +270,9 @@ class TestGatewayService:
         input_validator.validate_with_policy.return_value = (
             ValidationResult.ok()
             if input_passes
-            else ValidationResult.fail([_violation("toxic_content_detected")], risk_score=0.9)
+            else ValidationResult.fail(
+                [_violation("toxic_content_detected")], risk_score=0.9
+            )
         )
 
         output_validator = MagicMock()
@@ -338,7 +358,9 @@ class TestGatewayService:
 
         output_validator.validate_with_policy.side_effect = output_side_effect
 
-        svc = GatewayService(policy_service, provider_factory, input_validator, output_validator)
+        svc = GatewayService(
+            policy_service, provider_factory, input_validator, output_validator
+        )
         req = ChatRequest(prompt="Try again please")
         resp = await svc.chat(req, request_id="test-005")
 

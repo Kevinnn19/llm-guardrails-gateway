@@ -22,26 +22,30 @@ from app.services.validation import ValidationService
 
 
 def _build_input_validation_service() -> ValidationService:
-    return ValidationService([
-        PromptInjectionDetector(),
-        JailbreakDetector(),
-        PIIDetector(),
-        SecretDetector(),
-        TokenLengthValidator(),
-        LanguageValidator(),
-        ToxicityDetector(),
-    ])
+    return ValidationService(
+        [
+            PromptInjectionDetector(),
+            JailbreakDetector(),
+            PIIDetector(),
+            SecretDetector(),
+            TokenLengthValidator(),
+            LanguageValidator(),
+            ToxicityDetector(),
+        ]
+    )
 
 
 def _build_output_validation_service() -> OutputValidationService:
-    return OutputValidationService([
-        JSONSchemaValidator(),
-        OutputToxicityDetector(),
-        PromptLeakageDetector(),
-        SecretLeakageDetector(),
-        OffTopicDetector(),
-        HallucinationGuard(),
-    ])
+    return OutputValidationService(
+        [
+            JSONSchemaValidator(),
+            OutputToxicityDetector(),
+            PromptLeakageDetector(),
+            SecretLeakageDetector(),
+            OffTopicDetector(),
+            HallucinationGuard(),
+        ]
+    )
 
 
 class Container:

@@ -13,7 +13,9 @@ class ToxicityDetector(AbstractGuardrail):
     def name(self) -> str:
         return "ToxicityDetector"
 
-    def validate(self, content: str, context: GuardrailContext | None = None) -> ValidationResult:
+    def validate(
+        self, content: str, context: GuardrailContext | None = None
+    ) -> ValidationResult:
         ctx = context or {}
         threshold: float = float(ctx.get("threshold", 0.5))
 

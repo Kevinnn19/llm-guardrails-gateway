@@ -20,7 +20,9 @@ class OutputToxicityDetector(AbstractGuardrail):
     def name(self) -> str:
         return "OutputToxicityDetector"
 
-    def validate(self, content: str, context: GuardrailContext | None = None) -> ValidationResult:
+    def validate(
+        self, content: str, context: GuardrailContext | None = None
+    ) -> ValidationResult:
         ctx = context or {}
         threshold: float = float(ctx.get("threshold", _DEFAULT_THRESHOLD))
 
@@ -34,12 +36,14 @@ class OutputToxicityDetector(AbstractGuardrail):
             return ValidationResult.ok()
 
         return ValidationResult.fail(
-            violations=[Violation(
-                guardrail=self.name,
-                code="toxic_output_detected",
-                message=f"Toxic content in response ({len(matches)} match(es))",
-                severity="high",
-                score=score,
-            )],
+            violations=[
+                Violation(
+                    guardrail=self.name,
+                    code="toxic_output_detected",
+                    message=f"Toxic content in response ({len(matches)} match(es))",
+                    severity="high",
+                    score=score,
+                )
+            ],
             risk_score=score,
         )

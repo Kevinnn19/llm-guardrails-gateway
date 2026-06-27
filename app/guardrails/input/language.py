@@ -63,7 +63,9 @@ class LanguageValidator(AbstractGuardrail):
     def name(self) -> str:
         return "LanguageValidator"
 
-    def validate(self, content: str, context: GuardrailContext | None = None) -> ValidationResult:
+    def validate(
+        self, content: str, context: GuardrailContext | None = None
+    ) -> ValidationResult:
         ctx = context or {}
         allowed: list[str] = list(ctx.get("allowed", _DEFAULT_ALLOWED))
         detected = _detect_language(content)

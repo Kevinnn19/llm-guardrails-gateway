@@ -15,7 +15,9 @@ class PIIDetector(AbstractGuardrail):
     def name(self) -> str:
         return "PIIDetector"
 
-    def validate(self, content: str, context: GuardrailContext | None = None) -> ValidationResult:
+    def validate(
+        self, content: str, context: GuardrailContext | None = None
+    ) -> ValidationResult:
         ctx = context or {}
         entities: frozenset[str] = frozenset(ctx.get("entities", _DEFAULT_ENTITIES))
 

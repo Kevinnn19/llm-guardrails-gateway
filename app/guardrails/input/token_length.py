@@ -14,7 +14,9 @@ class TokenLengthValidator(AbstractGuardrail):
     def name(self) -> str:
         return "TokenLengthValidator"
 
-    def validate(self, content: str, context: GuardrailContext | None = None) -> ValidationResult:
+    def validate(
+        self, content: str, context: GuardrailContext | None = None
+    ) -> ValidationResult:
         ctx = context or {}
         max_tokens: int = int(ctx.get("max_tokens", _DEFAULT_MAX_TOKENS))
         estimated = estimate_tokens(content)

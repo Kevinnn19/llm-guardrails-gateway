@@ -6,8 +6,7 @@ so an invalid YAML never silently reaches the guardrail chain.
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
-
+from pydantic import BaseModel, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # Shared
@@ -24,6 +23,7 @@ class _GuardrailBase(BaseModel):
 # ---------------------------------------------------------------------------
 # Input guardrail configs
 # ---------------------------------------------------------------------------
+
 
 class PromptInjectionConfig(_GuardrailBase):
     threshold: float = Field(default=0.75, ge=0.0, le=1.0)
@@ -55,7 +55,9 @@ class ToxicityInputConfig(_GuardrailBase):
 
 
 class InputGuardrailsConfig(BaseModel):
-    prompt_injection: PromptInjectionConfig = Field(default_factory=PromptInjectionConfig)
+    prompt_injection: PromptInjectionConfig = Field(
+        default_factory=PromptInjectionConfig
+    )
     jailbreak: JailbreakConfig = Field(default_factory=JailbreakConfig)
     pii: PIIConfig = Field(default_factory=PIIConfig)
     secrets: SecretsConfig = Field(default_factory=SecretsConfig)
@@ -67,6 +69,7 @@ class InputGuardrailsConfig(BaseModel):
 # ---------------------------------------------------------------------------
 # Output guardrail configs
 # ---------------------------------------------------------------------------
+
 
 class JSONSchemaConfig(_GuardrailBase):
     enabled: bool = False
@@ -109,10 +112,61 @@ class OutputGuardrailsConfig(BaseModel):
 # Provider config
 # ---------------------------------------------------------------------------
 
-class ProviderConfig(BaseModel):
+
+class ProviderEndpointConfig(BaseModel):
     name: str = "openai"
     model: str = "gpt-4o"
     timeout_seconds: float = Field(default=30.0, gt=0)
+
+
+class ProviderConfig(BaseModel):
+    primary: ProviderEndpointConfig = Field(default_factory=ProviderEndpointConfig)
+    fallbacks: list[ProviderEndpointConfig] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_provider_shape(cls, values: Any) -> Any:
+        if not isinstance(values, dict):
+            return values
+
+        if "primary" in values or "fallbacks" in values:
+            primary_value = values.get("primary")
+            if isinstance(primary_value, dict):
+                primary_data = dict(primary_value)
+            else:
+                primary_data = {}
+
+            for key in ("name", "model", "timeout_seconds"):
+                if key in values and key not in primary_data:
+                    primary_data[key] = values[key]
+
+            return {
+                "primary": primary_data,
+                "fallbacks": values.get("fallbacks") or [],
+            }
+
+        if any(key in values for key in ("name", "model", "timeout_seconds")):
+            return {
+                "primary": {
+                    key: values[key]
+                    for key in ("name", "model", "timeout_seconds")
+                    if key in values
+                }
+            }
+
+        return values
+
+    @property
+    def name(self) -> str:
+        return self.primary.name
+
+    @property
+    def model(self) -> str:
+        return self.primary.model
+
+    @property
+    def timeout_seconds(self) -> float:
+        return self.primary.timeout_seconds
 
 
 # ---------------------------------------------------------------------------
@@ -134,6 +188,7 @@ class RetryConfig(BaseModel):
 # Compliance config
 # ---------------------------------------------------------------------------
 
+
 class ComplianceConfig(BaseModel):
     block_topics: list[str] = []
     require_citations: bool = False
@@ -144,13 +199,18 @@ class ComplianceConfig(BaseModel):
 # Root policy model
 # ---------------------------------------------------------------------------
 
+
 class Policy(BaseModel):
     id: str
     version: str = "1.0"
     description: str = ""
     provider: ProviderConfig = Field(default_factory=ProviderConfig)
-    input_guardrails: InputGuardrailsConfig = Field(default_factory=InputGuardrailsConfig)
-    output_guardrails: OutputGuardrailsConfig = Field(default_factory=OutputGuardrailsConfig)
+    input_guardrails: InputGuardrailsConfig = Field(
+        default_factory=InputGuardrailsConfig
+    )
+    output_guardrails: OutputGuardrailsConfig = Field(
+        default_factory=OutputGuardrailsConfig
+    )
     retry: RetryConfig = Field(default_factory=RetryConfig)
     compliance: ComplianceConfig = Field(default_factory=ComplianceConfig)
 
@@ -164,7 +224,8 @@ class Policy(BaseModel):
     def enabled_input_guardrails(self) -> list[str]:
         ig = self.input_guardrails
         return [
-            name for name, cfg in {
+            name
+            for name, cfg in {
                 "prompt_injection": ig.prompt_injection,
                 "jailbreak": ig.jailbreak,
                 "pii": ig.pii,
@@ -179,7 +240,8 @@ class Policy(BaseModel):
     def enabled_output_guardrails(self) -> list[str]:
         og = self.output_guardrails
         return [
-            name for name, cfg in {
+            name
+            for name, cfg in {
                 "json_schema": og.json_schema,
                 "toxicity": og.toxicity,
                 "prompt_leakage": og.prompt_leakage,

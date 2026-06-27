@@ -18,7 +18,9 @@ class AbstractGuardrail(ABC):
     """Base class for all input and output guardrails."""
 
     @abstractmethod
-    def validate(self, content: str, context: GuardrailContext | None = None) -> ValidationResult:
+    def validate(
+        self, content: str, context: GuardrailContext | None = None
+    ) -> ValidationResult:
         """Validate content and return a result.
 
         Args:

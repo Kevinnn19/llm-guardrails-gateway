@@ -19,7 +19,8 @@ from app.guardrails.result import ValidationResult, Violation
 
 # Phrases that signal overconfident, unhedged factual claims
 _OVERCONFIDENT: list[re.Pattern[str]] = [
-    re.compile(p, re.IGNORECASE) for p in [
+    re.compile(p, re.IGNORECASE)
+    for p in [
         r"\b(it is a fact that|the fact is|definitively|indisputably|undeniably)\b",
         r"\b(100\s*%\s*(certain|sure|accurate|correct|guaranteed))\b",
         r"\b(there is no doubt|without any doubt|absolutely certain)\b",
@@ -34,7 +35,8 @@ _FAKE_CITATION: re.Pattern[str] = re.compile(
 
 # Self-contradiction signals
 _CONTRADICTION: list[re.Pattern[str]] = [
-    re.compile(p, re.IGNORECASE) for p in [
+    re.compile(p, re.IGNORECASE)
+    for p in [
         r"\b(however|but|on the other hand|conversely)\b.{0,80}\b(earlier|above|previously)\b",
         r"\bcontradicts?\b",
     ]
@@ -48,7 +50,9 @@ class HallucinationGuard(AbstractGuardrail):
     def name(self) -> str:
         return "HallucinationGuard"
 
-    def validate(self, content: str, context: GuardrailContext | None = None) -> ValidationResult:
+    def validate(
+        self, content: str, context: GuardrailContext | None = None
+    ) -> ValidationResult:
         ctx = context or {}
         check_citations: bool = bool(ctx.get("check_citations", False))
 
@@ -57,36 +61,42 @@ class HallucinationGuard(AbstractGuardrail):
         # Check overconfident language
         overconfident_hits = [p.pattern for p in _OVERCONFIDENT if p.search(content)]
         if overconfident_hits:
-            violations.append(Violation(
-                guardrail=self.name,
-                code="hallucination_signal",
-                message=f"Overconfident language detected ({len(overconfident_hits)} pattern(s))",
-                severity="medium",
-                score=0.6,
-            ))
+            violations.append(
+                Violation(
+                    guardrail=self.name,
+                    code="hallucination_signal",
+                    message=f"Overconfident language detected ({len(overconfident_hits)} pattern(s))",
+                    severity="medium",
+                    score=0.6,
+                )
+            )
 
         # Check fabricated citations (opt-in)
         if check_citations:
             citation_matches = _FAKE_CITATION.findall(content)
             if citation_matches:
-                violations.append(Violation(
-                    guardrail=self.name,
-                    code="possible_fabricated_citation",
-                    message=f"Possible fabricated citation(s): {citation_matches[:3]}",
-                    severity="medium",
-                    score=0.65,
-                ))
+                violations.append(
+                    Violation(
+                        guardrail=self.name,
+                        code="possible_fabricated_citation",
+                        message=f"Possible fabricated citation(s): {citation_matches[:3]}",
+                        severity="medium",
+                        score=0.65,
+                    )
+                )
 
         # Check self-contradiction signals
         contradiction_hits = [p.pattern for p in _CONTRADICTION if p.search(content)]
         if contradiction_hits:
-            violations.append(Violation(
-                guardrail=self.name,
-                code="contradiction_signal",
-                message="Possible self-contradiction detected in response",
-                severity="low",
-                score=0.45,
-            ))
+            violations.append(
+                Violation(
+                    guardrail=self.name,
+                    code="contradiction_signal",
+                    message="Possible self-contradiction detected in response",
+                    severity="low",
+                    score=0.45,
+                )
+            )
 
         if not violations:
             return ValidationResult.ok()

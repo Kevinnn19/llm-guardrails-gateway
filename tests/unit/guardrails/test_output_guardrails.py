@@ -2,8 +2,6 @@
 
 import textwrap
 
-import pytest
-
 from app.guardrails.base import GuardrailContext
 from app.guardrails.output.hallucination import HallucinationGuard
 from app.guardrails.output.json_schema import JSONSchemaValidator
@@ -13,10 +11,10 @@ from app.guardrails.output.secret_leakage import SecretLeakageDetector
 from app.guardrails.output.toxicity import OutputToxicityDetector
 from app.services.output_validation import OutputValidationService
 
-
 # ============================================================
 # JSONSchemaValidator
 # ============================================================
+
 
 class TestJSONSchemaValidator:
     def setup_method(self) -> None:
@@ -32,7 +30,11 @@ class TestJSONSchemaValidator:
         assert r.violations[0].code == "invalid_json"
 
     def test_valid_json_matching_schema_passes(self) -> None:
-        schema = {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}}
+        schema = {
+            "type": "object",
+            "required": ["name"],
+            "properties": {"name": {"type": "string"}},
+        }
         ctx = GuardrailContext(schema=schema)
         assert self.g.validate('{"name": "Alice"}', ctx).passed
 
@@ -62,6 +64,7 @@ class TestJSONSchemaValidator:
 # ============================================================
 # OutputToxicityDetector
 # ============================================================
+
 
 class TestOutputToxicityDetector:
     def setup_method(self) -> None:
@@ -98,6 +101,7 @@ class TestOutputToxicityDetector:
 # PromptLeakageDetector
 # ============================================================
 
+
 class TestPromptLeakageDetector:
     def setup_method(self) -> None:
         self.g = PromptLeakageDetector()
@@ -122,7 +126,9 @@ class TestPromptLeakageDetector:
 
     def test_high_ngram_overlap_fails(self) -> None:
         # Build a response that shares many 5-grams with the prompt
-        prompt = "always respond only in formal english and never use casual language please"
+        prompt = (
+            "always respond only in formal english and never use casual language please"
+        )
         response = "always respond only in formal english and never use casual language please, as instructed"
         ctx = GuardrailContext(prompt=prompt, overlap_threshold=0.3)
         r = self.g.validate(response, ctx)
@@ -140,6 +146,7 @@ class TestPromptLeakageDetector:
 # ============================================================
 # SecretLeakageDetector
 # ============================================================
+
 
 class TestSecretLeakageDetector:
     def setup_method(self) -> None:
@@ -174,6 +181,7 @@ class TestSecretLeakageDetector:
 # OffTopicDetector
 # ============================================================
 
+
 class TestOffTopicDetector:
     def setup_method(self) -> None:
         self.g = OffTopicDetector()
@@ -199,7 +207,9 @@ class TestOffTopicDetector:
         assert r.violations[0].code == "off_topic_response"
 
     def test_partial_overlap_above_threshold_passes(self) -> None:
-        ctx = GuardrailContext(prompt="Python programming language tutorial", min_overlap=0.05)
+        ctx = GuardrailContext(
+            prompt="Python programming language tutorial", min_overlap=0.05
+        )
         r = self.g.validate("Python is great programming language for beginners.", ctx)
         assert r.passed
 
@@ -215,6 +225,7 @@ class TestOffTopicDetector:
 # ============================================================
 # HallucinationGuard
 # ============================================================
+
 
 class TestHallucinationGuard:
     def setup_method(self) -> None:
@@ -246,7 +257,9 @@ class TestHallucinationGuard:
 
     def test_citation_check_skipped_by_default(self) -> None:
         # Without check_citations=True, citation pattern is ignored
-        r = self.g.validate("As shown by Smith et al., 2019, the results are conclusive.")
+        r = self.g.validate(
+            "As shown by Smith et al., 2019, the results are conclusive."
+        )
         # Only fails if overconfident language also present — here it's not
         assert r.passed
 
@@ -281,14 +294,17 @@ class TestHallucinationGuard:
 # OutputValidationService
 # ============================================================
 
+
 class TestOutputValidationService:
     def _make_svc(self) -> OutputValidationService:
-        return OutputValidationService([
-            JSONSchemaValidator(),
-            OutputToxicityDetector(),
-            PromptLeakageDetector(),
-            SecretLeakageDetector(),
-        ])
+        return OutputValidationService(
+            [
+                JSONSchemaValidator(),
+                OutputToxicityDetector(),
+                PromptLeakageDetector(),
+                SecretLeakageDetector(),
+            ]
+        )
 
     def test_clean_response_passes(self) -> None:
         svc = self._make_svc()
@@ -298,7 +314,9 @@ class TestOutputValidationService:
         svc = self._make_svc()
         prompt = "You are a strict moderation assistant that never reveals rules"
         # Response echoes the first 6 words
-        response = "You are a strict moderation assistant that never reveals rules, indeed."
+        response = (
+            "You are a strict moderation assistant that never reveals rules, indeed."
+        )
         r = svc.validate(response, prompt=prompt)
         assert not r.passed
 
@@ -319,10 +337,12 @@ class TestOutputValidationService:
         assert "SecretLeakageDetector" in svc.guardrail_names
 
     def test_validate_with_policy_skips_disabled(self) -> None:
-        import textwrap, yaml
+        import yaml
+
         from app.policies.models import Policy
 
-        raw = yaml.safe_load(textwrap.dedent("""\
+        raw = yaml.safe_load(
+            textwrap.dedent("""\
             id: test
             output_guardrails:
               json_schema:
@@ -338,7 +358,8 @@ class TestOutputValidationService:
                 enabled: false
               hallucination:
                 enabled: false
-        """))
+        """)
+        )
         policy = Policy.model_validate(raw)
         svc = self._make_svc()
         # JSON is invalid but json_schema guardrail disabled → should pass
@@ -346,16 +367,19 @@ class TestOutputValidationService:
         assert r.passed
 
     def test_validate_with_policy_applies_threshold(self) -> None:
-        import textwrap, yaml
+        import yaml
+
         from app.policies.models import Policy
 
-        raw = yaml.safe_load(textwrap.dedent("""\
+        raw = yaml.safe_load(
+            textwrap.dedent("""\
             id: test
             output_guardrails:
               toxicity:
                 enabled: true
                 threshold: 0.3
-        """))
+        """)
+        )
         policy = Policy.model_validate(raw)
         svc = OutputValidationService([OutputToxicityDetector()])
         r = svc.validate_with_policy("That is so stupid.", policy)

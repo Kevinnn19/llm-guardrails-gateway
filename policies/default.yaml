@@ -3,9 +3,20 @@ version: "1.0"
 description: "Default policy — balanced security for general-purpose use"
 
 provider:
-  name: ollama
-  model: ollama/qwen2.5:7b
-  timeout_seconds: 50
+  primary:
+    name: openai
+    model: gpt-4o-mini
+    timeout_seconds: 50
+  fallbacks:
+    - name: gemini
+      model: gemini-2.5-flash
+      timeout_seconds: 30
+    - name: deepseek
+      model: deepseek-chat
+      timeout_seconds: 30
+    - name: ollama
+      model: qwen2.5:7b
+      timeout_seconds: 30
 
 input_guardrails:
   prompt_injection:

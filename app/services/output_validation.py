@@ -2,15 +2,15 @@
 
 from app.guardrails.base import AbstractGuardrail, GuardrailContext
 from app.guardrails.result import ValidationResult, Violation
-from app.policies.models import OutputGuardrailsConfig, Policy
+from app.policies.models import Policy
 
 _OUTPUT_GUARDRAIL_CONFIG_KEY: dict[str, str] = {
-    "JSONSchemaValidator":    "json_schema",
+    "JSONSchemaValidator": "json_schema",
     "OutputToxicityDetector": "toxicity",
-    "PromptLeakageDetector":  "prompt_leakage",
-    "SecretLeakageDetector":  "secret_leakage",
-    "OffTopicDetector":       "off_topic",
-    "HallucinationGuard":     "hallucination",
+    "PromptLeakageDetector": "prompt_leakage",
+    "SecretLeakageDetector": "secret_leakage",
+    "OffTopicDetector": "off_topic",
+    "HallucinationGuard": "hallucination",
 }
 
 

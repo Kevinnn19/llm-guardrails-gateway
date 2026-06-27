@@ -45,4 +45,4 @@ def setup_logging() -> None:
     )
 
 
-__all__ = ["logger", "setup_logging", "get_request_id", "set_request_id"]
+__all__ = ["get_request_id", "logger", "set_request_id", "setup_logging"]

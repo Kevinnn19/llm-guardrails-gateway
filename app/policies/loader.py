@@ -66,5 +66,7 @@ class PolicyLoader:
                 policy = self.load(yaml_file)
                 policies[policy.id] = policy
             except (PolicyNotFoundError, PolicyInvalidError) as exc:
-                logger.warning("Skipping invalid policy file {}: {}", yaml_file.name, exc)
+                logger.warning(
+                    "Skipping invalid policy file {}: {}", yaml_file.name, exc
+                )
         return policies

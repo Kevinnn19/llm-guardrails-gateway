@@ -15,13 +15,47 @@ from app.guardrails.base import AbstractGuardrail, GuardrailContext
 from app.guardrails.result import ValidationResult, Violation
 from app.utils.text import normalise
 
-_DEFAULT_MIN_OVERLAP = 0.05   # minimum keyword overlap ratio to be considered on-topic
-_STOP_WORDS: frozenset[str] = frozenset({
-    "the", "a", "an", "is", "are", "was", "were", "and", "or", "but",
-    "not", "in", "on", "at", "to", "for", "of", "with", "it", "this",
-    "that", "be", "have", "do", "what", "how", "why", "when", "where",
-    "which", "i", "you", "we", "they", "he", "she",
-})
+_DEFAULT_MIN_OVERLAP = 0.05  # minimum keyword overlap ratio to be considered on-topic
+_STOP_WORDS: frozenset[str] = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "and",
+        "or",
+        "but",
+        "not",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "it",
+        "this",
+        "that",
+        "be",
+        "have",
+        "do",
+        "what",
+        "how",
+        "why",
+        "when",
+        "where",
+        "which",
+        "i",
+        "you",
+        "we",
+        "they",
+        "he",
+        "she",
+    }
+)
 
 
 def _keywords(text: str) -> set[str]:
@@ -35,7 +69,9 @@ class OffTopicDetector(AbstractGuardrail):
     def name(self) -> str:
         return "OffTopicDetector"
 
-    def validate(self, content: str, context: GuardrailContext | None = None) -> ValidationResult:
+    def validate(
+        self, content: str, context: GuardrailContext | None = None
+    ) -> ValidationResult:
         ctx = context or {}
         prompt: str = ctx.get("prompt", "")
         min_overlap: float = float(ctx.get("min_overlap", _DEFAULT_MIN_OVERLAP))
@@ -56,12 +92,14 @@ class OffTopicDetector(AbstractGuardrail):
 
         score = min(1.0, 0.5 + (min_overlap - overlap) * 5)
         return ValidationResult.fail(
-            violations=[Violation(
-                guardrail=self.name,
-                code="off_topic_response",
-                message=f"Response keyword overlap with prompt is {overlap:.0%} (min {min_overlap:.0%})",
-                severity="medium",
-                score=score,
-            )],
+            violations=[
+                Violation(
+                    guardrail=self.name,
+                    code="off_topic_response",
+                    message=f"Response keyword overlap with prompt is {overlap:.0%} (min {min_overlap:.0%})",
+                    severity="medium",
+                    score=score,
+                )
+            ],
             risk_score=score,
         )

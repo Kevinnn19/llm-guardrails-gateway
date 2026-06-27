@@ -18,10 +18,10 @@ from app.providers.factory import ProviderFactory
 from app.providers.litellm_provider import LiteLLMProvider, _extract_provider
 from app.providers.models import Message, ProviderRequest, ProviderResponse
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_request(model: str = "openai/gpt-4o") -> ProviderRequest:
     return ProviderRequest(
@@ -52,6 +52,7 @@ def _make_litellm_response(content: str = "Hi there") -> MagicMock:
 # _extract_provider
 # ---------------------------------------------------------------------------
 
+
 class TestExtractProvider:
     def test_extracts_prefix(self) -> None:
         assert _extract_provider("openai/gpt-4o") == "openai"
@@ -67,11 +68,15 @@ class TestExtractProvider:
 # LiteLLMProvider.complete — happy path
 # ---------------------------------------------------------------------------
 
+
 class TestLiteLLMProviderComplete:
     @pytest.mark.asyncio
     async def test_returns_provider_response(self) -> None:
         mock_response = _make_litellm_response("Hello!")
-        with patch("app.providers.litellm_provider.litellm.acompletion", new=AsyncMock(return_value=mock_response)):
+        with patch(
+            "app.providers.litellm_provider.litellm.acompletion",
+            new=AsyncMock(return_value=mock_response),
+        ):
             provider = LiteLLMProvider()
             result = await provider.complete(_make_request())
 
@@ -83,7 +88,10 @@ class TestLiteLLMProviderComplete:
     @pytest.mark.asyncio
     async def test_usage_mapped_correctly(self) -> None:
         mock_response = _make_litellm_response()
-        with patch("app.providers.litellm_provider.litellm.acompletion", new=AsyncMock(return_value=mock_response)):
+        with patch(
+            "app.providers.litellm_provider.litellm.acompletion",
+            new=AsyncMock(return_value=mock_response),
+        ):
             result = await LiteLLMProvider().complete(_make_request())
 
         assert result.usage is not None
@@ -94,7 +102,10 @@ class TestLiteLLMProviderComplete:
     @pytest.mark.asyncio
     async def test_latency_is_positive(self) -> None:
         mock_response = _make_litellm_response()
-        with patch("app.providers.litellm_provider.litellm.acompletion", new=AsyncMock(return_value=mock_response)):
+        with patch(
+            "app.providers.litellm_provider.litellm.acompletion",
+            new=AsyncMock(return_value=mock_response),
+        ):
             result = await LiteLLMProvider().complete(_make_request())
         assert result.latency_ms >= 0.0
 
@@ -106,16 +117,25 @@ class TestLiteLLMProviderComplete:
             messages=[Message(role="user", content="Hi")],
             max_tokens=256,
         )
-        with patch("app.providers.litellm_provider.litellm.acompletion", new=AsyncMock(return_value=mock_response)) as mock_call:
+        with patch(
+            "app.providers.litellm_provider.litellm.acompletion",
+            new=AsyncMock(return_value=mock_response),
+        ) as mock_call:
             await LiteLLMProvider().complete(request)
         _, kwargs = mock_call.call_args
-        assert kwargs.get("max_tokens") == 256 or mock_call.call_args[1].get("max_tokens") == 256
+        assert (
+            kwargs.get("max_tokens") == 256
+            or mock_call.call_args[1].get("max_tokens") == 256
+        )
 
     @pytest.mark.asyncio
     async def test_no_max_tokens_when_none(self) -> None:
         mock_response = _make_litellm_response()
         request = _make_request()  # max_tokens=None
-        with patch("app.providers.litellm_provider.litellm.acompletion", new=AsyncMock(return_value=mock_response)) as mock_call:
+        with patch(
+            "app.providers.litellm_provider.litellm.acompletion",
+            new=AsyncMock(return_value=mock_response),
+        ) as mock_call:
             await LiteLLMProvider().complete(request)
         call_kwargs: dict[str, Any] = mock_call.call_args[1]
         assert "max_tokens" not in call_kwargs
@@ -124,7 +144,10 @@ class TestLiteLLMProviderComplete:
     async def test_none_usage_handled(self) -> None:
         mock_response = _make_litellm_response()
         mock_response.usage = None
-        with patch("app.providers.litellm_provider.litellm.acompletion", new=AsyncMock(return_value=mock_response)):
+        with patch(
+            "app.providers.litellm_provider.litellm.acompletion",
+            new=AsyncMock(return_value=mock_response),
+        ):
             result = await LiteLLMProvider().complete(_make_request())
         assert result.usage is None
 
@@ -133,13 +156,19 @@ class TestLiteLLMProviderComplete:
 # LiteLLMProvider.complete — error mapping
 # ---------------------------------------------------------------------------
 
+
 class TestLiteLLMProviderErrors:
     @pytest.mark.asyncio
     async def test_authentication_error_raises_provider_error(self) -> None:
         import litellm
+
         with patch(
             "app.providers.litellm_provider.litellm.acompletion",
-            new=AsyncMock(side_effect=litellm.AuthenticationError("bad key", llm_provider="openai", model="gpt-4o")),
+            new=AsyncMock(
+                side_effect=litellm.AuthenticationError(
+                    "bad key", llm_provider="openai", model="gpt-4o"
+                )
+            ),
         ):
             with pytest.raises(ProviderError, match="Authentication failed"):
                 await LiteLLMProvider().complete(_make_request())
@@ -147,9 +176,14 @@ class TestLiteLLMProviderErrors:
     @pytest.mark.asyncio
     async def test_rate_limit_error_raises_provider_error(self) -> None:
         import litellm
+
         with patch(
             "app.providers.litellm_provider.litellm.acompletion",
-            new=AsyncMock(side_effect=litellm.RateLimitError("rate limit", llm_provider="openai", model="gpt-4o")),
+            new=AsyncMock(
+                side_effect=litellm.RateLimitError(
+                    "rate limit", llm_provider="openai", model="gpt-4o"
+                )
+            ),
         ):
             with pytest.raises(ProviderError, match="Rate limit exceeded"):
                 await LiteLLMProvider().complete(_make_request())
@@ -157,9 +191,14 @@ class TestLiteLLMProviderErrors:
     @pytest.mark.asyncio
     async def test_bad_request_error_raises_provider_error(self) -> None:
         import litellm
+
         with patch(
             "app.providers.litellm_provider.litellm.acompletion",
-            new=AsyncMock(side_effect=litellm.BadRequestError("bad request", llm_provider="openai", model="gpt-4o")),
+            new=AsyncMock(
+                side_effect=litellm.BadRequestError(
+                    "bad request", llm_provider="openai", model="gpt-4o"
+                )
+            ),
         ):
             with pytest.raises(ProviderError, match="Bad request"):
                 await LiteLLMProvider().complete(_make_request())
@@ -178,6 +217,7 @@ class TestLiteLLMProviderErrors:
 # LiteLLMProvider — provider_name
 # ---------------------------------------------------------------------------
 
+
 class TestLiteLLMProviderName:
     def test_provider_name(self) -> None:
         assert LiteLLMProvider().provider_name == "litellm"
@@ -187,6 +227,7 @@ class TestLiteLLMProviderName:
 # ProviderFactory
 # ---------------------------------------------------------------------------
 
+
 class TestProviderFactory:
     def test_openai_returns_litellm_provider(self) -> None:
         factory = ProviderFactory()
@@ -194,7 +235,9 @@ class TestProviderFactory:
         assert isinstance(provider, LiteLLMProvider)
 
     def test_anthropic_returns_litellm_provider(self) -> None:
-        provider = ProviderFactory().get_provider("anthropic/claude-3-5-sonnet-20241022")
+        provider = ProviderFactory().get_provider(
+            "anthropic/claude-3-5-sonnet-20241022"
+        )
         assert isinstance(provider, LiteLLMProvider)
 
     def test_gemini_returns_litellm_provider(self) -> None:
@@ -211,7 +254,9 @@ class TestProviderFactory:
 
     def test_singleton_same_instance_returned(self) -> None:
         factory = ProviderFactory()
-        assert factory.get_provider("openai/gpt-4o") is factory.get_provider("anthropic/claude-3-5-sonnet-20241022")
+        assert factory.get_provider("openai/gpt-4o") is factory.get_provider(
+            "anthropic/claude-3-5-sonnet-20241022"
+        )
 
     def test_model_without_prefix_routes_to_litellm(self) -> None:
         """Bare model names (no slash) default to openai prefix logic."""

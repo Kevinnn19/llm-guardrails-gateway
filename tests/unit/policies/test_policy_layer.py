@@ -6,14 +6,13 @@ from pathlib import Path
 import pytest
 
 from app.core.exceptions import PolicyInvalidError, PolicyNotFoundError
-from app.guardrails.input.prompt_injection import PromptInjectionDetector
 from app.guardrails.input.pii import PIIDetector
+from app.guardrails.input.prompt_injection import PromptInjectionDetector
 from app.guardrails.input.token_length import TokenLengthValidator
 from app.policies.loader import PolicyLoader
-from app.policies.models import Policy, InputGuardrailsConfig
+from app.policies.models import Policy
 from app.services.policy import PolicyService
 from app.services.validation import ValidationService
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -65,55 +64,73 @@ def policy(loader: PolicyLoader, policy_dir: Path) -> Policy:
 # PolicyLoader
 # ---------------------------------------------------------------------------
 
+
 class TestPolicyLoader:
     def test_load_valid_yaml(self, loader: PolicyLoader, policy_dir: Path) -> None:
         p = loader.load(policy_dir / "test_policy.yaml")
         assert p.id == "test_policy"
         assert p.version == "1.0"
 
-    def test_load_injects_id_from_filename(self, loader: PolicyLoader, tmp_path: Path) -> None:
+    def test_load_injects_id_from_filename(
+        self, loader: PolicyLoader, tmp_path: Path
+    ) -> None:
         yaml_path = tmp_path / "my_custom.yaml"
         yaml_path.write_text("version: '2.0'\n", encoding="utf-8")
         p = loader.load(yaml_path)
         assert p.id == "my_custom"
 
-    def test_load_missing_file_raises(self, loader: PolicyLoader, tmp_path: Path) -> None:
+    def test_load_missing_file_raises(
+        self, loader: PolicyLoader, tmp_path: Path
+    ) -> None:
         with pytest.raises(PolicyNotFoundError):
             loader.load(tmp_path / "nonexistent.yaml")
 
-    def test_load_invalid_yaml_raises(self, loader: PolicyLoader, tmp_path: Path) -> None:
+    def test_load_invalid_yaml_raises(
+        self, loader: PolicyLoader, tmp_path: Path
+    ) -> None:
         bad = tmp_path / "bad.yaml"
         bad.write_text("key: [unclosed bracket\n", encoding="utf-8")
         with pytest.raises(PolicyInvalidError, match="YAML parse error"):
             loader.load(bad)
 
-    def test_load_non_mapping_raises(self, loader: PolicyLoader, tmp_path: Path) -> None:
+    def test_load_non_mapping_raises(
+        self, loader: PolicyLoader, tmp_path: Path
+    ) -> None:
         bad = tmp_path / "bad.yaml"
         bad.write_text("- item1\n- item2\n", encoding="utf-8")
         with pytest.raises(PolicyInvalidError, match="must be a YAML mapping"):
             loader.load(bad)
 
-    def test_load_directory_returns_all(self, loader: PolicyLoader, policy_dir: Path, tmp_path: Path) -> None:
+    def test_load_directory_returns_all(
+        self, loader: PolicyLoader, policy_dir: Path, tmp_path: Path
+    ) -> None:
         # Add a second valid policy
-        (policy_dir / "second.yaml").write_text("id: second\nversion: '1.0'\n", encoding="utf-8")
+        (policy_dir / "second.yaml").write_text(
+            "id: second\nversion: '1.0'\n", encoding="utf-8"
+        )
         policies = loader.load_directory(policy_dir)
         assert "test_policy" in policies
         assert "second" in policies
 
-    def test_load_directory_skips_invalid(self, loader: PolicyLoader, policy_dir: Path) -> None:
+    def test_load_directory_skips_invalid(
+        self, loader: PolicyLoader, policy_dir: Path
+    ) -> None:
         (policy_dir / "broken.yaml").write_text("key: [unclosed\n", encoding="utf-8")
         # Should not raise — just skips broken file
         policies = loader.load_directory(policy_dir)
         assert "test_policy" in policies
         assert "broken" not in policies
 
-    def test_load_directory_empty_dir(self, loader: PolicyLoader, tmp_path: Path) -> None:
+    def test_load_directory_empty_dir(
+        self, loader: PolicyLoader, tmp_path: Path
+    ) -> None:
         assert loader.load_directory(tmp_path) == {}
 
 
 # ---------------------------------------------------------------------------
 # Policy model helpers
 # ---------------------------------------------------------------------------
+
 
 class TestPolicyModel:
     def test_litellm_model_no_slash(self, policy: Policy) -> None:
@@ -144,6 +161,7 @@ class TestPolicyModel:
 # ---------------------------------------------------------------------------
 # PolicyService
 # ---------------------------------------------------------------------------
+
 
 class TestPolicyService:
     def test_get_loaded_policy(self, policy_dir: Path) -> None:
@@ -214,17 +232,21 @@ class TestPolicyService:
 # ValidationService.validate_with_policy
 # ---------------------------------------------------------------------------
 
+
 class TestValidationServiceWithPolicy:
     def _make_svc(self) -> ValidationService:
-        return ValidationService([
-            PromptInjectionDetector(),
-            PIIDetector(),
-            TokenLengthValidator(),
-        ])
+        return ValidationService(
+            [
+                PromptInjectionDetector(),
+                PIIDetector(),
+                TokenLengthValidator(),
+            ]
+        )
 
     def _make_policy(self, overrides: dict) -> Policy:
         """Build a Policy from DEFAULT_YAML with inline overrides via loader."""
         import yaml
+
         base = yaml.safe_load(DEFAULT_YAML)
         base.update(overrides)
         return Policy.model_validate(base)
@@ -241,6 +263,7 @@ class TestValidationServiceWithPolicy:
         svc = self._make_svc()
         # Disable PII
         import yaml
+
         raw = yaml.safe_load(DEFAULT_YAML)
         raw["input_guardrails"]["pii"]["enabled"] = False
         policy = Policy.model_validate(raw)
@@ -272,7 +295,10 @@ class TestValidationServiceWithPolicy:
             @property
             def name(self) -> str:
                 return "WeirdGuardrailNotInMap"
-            def validate(self, content: str, context: GuardrailContext | None = None) -> ValidationResult:
+
+            def validate(
+                self, content: str, context: GuardrailContext | None = None
+            ) -> ValidationResult:
                 return ValidationResult.ok()
 
         svc = ValidationService([WeirdGuardrail()])

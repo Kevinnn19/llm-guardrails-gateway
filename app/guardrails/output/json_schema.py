@@ -20,7 +20,9 @@ class JSONSchemaValidator(AbstractGuardrail):
     def name(self) -> str:
         return "JSONSchemaValidator"
 
-    def validate(self, content: str, context: GuardrailContext | None = None) -> ValidationResult:
+    def validate(
+        self, content: str, context: GuardrailContext | None = None
+    ) -> ValidationResult:
         ctx = context or {}
         schema: dict[str, Any] | None = ctx.get("schema")
         enforce_json: bool = bool(ctx.get("enforce_json", False))
@@ -32,13 +34,15 @@ class JSONSchemaValidator(AbstractGuardrail):
             parsed: Any = json.loads(content)
         except json.JSONDecodeError as exc:
             return ValidationResult.fail(
-                violations=[Violation(
-                    guardrail=self.name,
-                    code="invalid_json",
-                    message=f"Response is not valid JSON: {exc.msg}",
-                    severity="high",
-                    score=0.9,
-                )],
+                violations=[
+                    Violation(
+                        guardrail=self.name,
+                        code="invalid_json",
+                        message=f"Response is not valid JSON: {exc.msg}",
+                        severity="high",
+                        score=0.9,
+                    )
+                ],
                 risk_score=0.9,
             )
 
@@ -49,13 +53,15 @@ class JSONSchemaValidator(AbstractGuardrail):
             jsonschema.validate(instance=parsed, schema=schema)
         except jsonschema.ValidationError as exc:
             return ValidationResult.fail(
-                violations=[Violation(
-                    guardrail=self.name,
-                    code="json_schema_violation",
-                    message=f"Schema violation: {exc.message}",
-                    severity="high",
-                    score=0.85,
-                )],
+                violations=[
+                    Violation(
+                        guardrail=self.name,
+                        code="json_schema_violation",
+                        message=f"Schema violation: {exc.message}",
+                        severity="high",
+                        score=0.85,
+                    )
+                ],
                 risk_score=0.85,
             )
 

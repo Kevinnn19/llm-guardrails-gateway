@@ -12,7 +12,9 @@ class SecretDetector(AbstractGuardrail):
     def name(self) -> str:
         return "SecretDetector"
 
-    def validate(self, content: str, context: GuardrailContext | None = None) -> ValidationResult:
+    def validate(
+        self, content: str, context: GuardrailContext | None = None
+    ) -> ValidationResult:
         violations: list[Violation] = []
 
         for secret_type, pattern in SECRETS.items():

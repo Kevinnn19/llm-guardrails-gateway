@@ -56,19 +56,27 @@ class LiteLLMProvider(AbstractLLMProvider):
         if request.max_tokens is not None:
             kwargs["max_tokens"] = request.max_tokens
 
-        logger.debug("provider_request model={} messages={}", request.model, len(messages))
+        logger.debug(
+            "provider_request model={} messages={}", request.model, len(messages)
+        )
         start = time.perf_counter()
 
         try:
             response = await litellm.acompletion(**kwargs)
         except litellm.AuthenticationError as exc:
-            raise ProviderError(f"Authentication failed for {request.model}: {exc}") from exc
+            raise ProviderError(
+                f"Authentication failed for {request.model}: {exc}"
+            ) from exc
         except litellm.RateLimitError as exc:
-            raise ProviderError(f"Rate limit exceeded for {request.model}: {exc}") from exc
+            raise ProviderError(
+                f"Rate limit exceeded for {request.model}: {exc}"
+            ) from exc
         except litellm.BadRequestError as exc:
             raise ProviderError(f"Bad request to {request.model}: {exc}") from exc
         except Exception as exc:
-            raise ProviderError(f"Provider call failed for {request.model}: {exc}") from exc
+            raise ProviderError(
+                f"Provider call failed for {request.model}: {exc}"
+            ) from exc
 
         latency_ms = (time.perf_counter() - start) * 1000
         content: str = response.choices[0].message.content or ""

@@ -93,7 +93,9 @@ class PolicyService:
     def reload_one(self, policy_id: str) -> None:
         """Reload a single policy by id. Raises PolicyNotFoundError if missing."""
         path = self._dir / f"{policy_id}.yaml"
-        policy = self._loader.load(path)  # raises PolicyNotFoundError/PolicyInvalidError
+        policy = self._loader.load(
+            path
+        )  # raises PolicyNotFoundError/PolicyInvalidError
         with self._lock:
             self._policies[policy.id] = policy
         logger.info("policy_reloaded id={}", policy.id)

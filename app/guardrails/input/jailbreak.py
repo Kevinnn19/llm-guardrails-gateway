@@ -13,7 +13,9 @@ class JailbreakDetector(AbstractGuardrail):
     def name(self) -> str:
         return "JailbreakDetector"
 
-    def validate(self, content: str, context: GuardrailContext | None = None) -> ValidationResult:
+    def validate(
+        self, content: str, context: GuardrailContext | None = None
+    ) -> ValidationResult:
         normalised = normalise(content)
         matches = [p.pattern for p in JAILBREAK if p.search(normalised)]
         if not matches:

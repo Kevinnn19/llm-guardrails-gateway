@@ -7,12 +7,12 @@ from app.policies.models import InputGuardrailsConfig, Policy
 # Maps guardrail class name → the InputGuardrailsConfig attribute that controls it
 _INPUT_GUARDRAIL_CONFIG_KEY: dict[str, str] = {
     "PromptInjectionDetector": "prompt_injection",
-    "JailbreakDetector":       "jailbreak",
-    "PIIDetector":             "pii",
-    "SecretDetector":          "secrets",
-    "TokenLengthValidator":    "token_length",
-    "LanguageValidator":       "language",
-    "ToxicityDetector":        "toxicity",
+    "JailbreakDetector": "jailbreak",
+    "PIIDetector": "pii",
+    "SecretDetector": "secrets",
+    "TokenLengthValidator": "token_length",
+    "LanguageValidator": "language",
+    "ToxicityDetector": "toxicity",
 }
 
 
@@ -81,8 +81,10 @@ class ValidationService:
         """
         ig = policy.input_guardrails
         active_guardrails = [
-            g for g in self._guardrails
-            if getattr(ig, _INPUT_GUARDRAIL_CONFIG_KEY.get(g.name, ""), None) is not None
+            g
+            for g in self._guardrails
+            if getattr(ig, _INPUT_GUARDRAIL_CONFIG_KEY.get(g.name, ""), None)
+            is not None
             and getattr(ig, _INPUT_GUARDRAIL_CONFIG_KEY[g.name]).enabled
         ]
 

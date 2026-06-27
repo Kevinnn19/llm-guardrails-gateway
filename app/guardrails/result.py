@@ -6,10 +6,10 @@ from pydantic import BaseModel, Field
 class Violation(BaseModel):
     """A single rule breach detected by a guardrail."""
 
-    guardrail: str        # guardrail class name, e.g. "PromptInjectionDetector"
-    code: str             # machine-readable code, e.g. "prompt_injection_detected"
-    message: str          # human-readable description
-    severity: str         # "low" | "medium" | "high" | "critical"
+    guardrail: str  # guardrail class name, e.g. "PromptInjectionDetector"
+    code: str  # machine-readable code, e.g. "prompt_injection_detected"
+    message: str  # human-readable description
+    severity: str  # "low" | "medium" | "high" | "critical"
     score: float = Field(ge=0.0, le=1.0)  # confidence / severity score
 
 
@@ -25,5 +25,7 @@ class ValidationResult(BaseModel):
         return cls(passed=True)
 
     @classmethod
-    def fail(cls, violations: list[Violation], risk_score: float = 1.0) -> "ValidationResult":
+    def fail(
+        cls, violations: list[Violation], risk_score: float = 1.0
+    ) -> "ValidationResult":
         return cls(passed=False, violations=violations, risk_score=risk_score)

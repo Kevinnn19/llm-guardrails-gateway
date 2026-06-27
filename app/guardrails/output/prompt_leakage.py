@@ -15,8 +15,8 @@ from app.guardrails.base import AbstractGuardrail, GuardrailContext
 from app.guardrails.result import ValidationResult, Violation
 from app.utils.text import normalise
 
-_DEFAULT_OVERLAP_THRESHOLD = 0.35   # fraction of prompt 5-grams found in response
-_MIN_PROMPT_LEN = 20                # ignore very short prompts
+_DEFAULT_OVERLAP_THRESHOLD = 0.35  # fraction of prompt 5-grams found in response
+_MIN_PROMPT_LEN = 20  # ignore very short prompts
 
 
 def _word_ngrams(text: str, n: int) -> set[tuple[str, ...]]:
@@ -31,10 +31,14 @@ class PromptLeakageDetector(AbstractGuardrail):
     def name(self) -> str:
         return "PromptLeakageDetector"
 
-    def validate(self, content: str, context: GuardrailContext | None = None) -> ValidationResult:
+    def validate(
+        self, content: str, context: GuardrailContext | None = None
+    ) -> ValidationResult:
         ctx = context or {}
         prompt: str = ctx.get("prompt", "")
-        threshold: float = float(ctx.get("overlap_threshold", _DEFAULT_OVERLAP_THRESHOLD))
+        threshold: float = float(
+            ctx.get("overlap_threshold", _DEFAULT_OVERLAP_THRESHOLD)
+        )
 
         if len(prompt) < _MIN_PROMPT_LEN:
             return ValidationResult.ok()
@@ -48,13 +52,15 @@ class PromptLeakageDetector(AbstractGuardrail):
             chunk = " ".join(words[:6])
             if chunk in norm_response:
                 return ValidationResult.fail(
-                    violations=[Violation(
-                        guardrail=self.name,
-                        code="prompt_leakage_detected",
-                        message="Response contains verbatim fragment of the original prompt",
-                        severity="high",
-                        score=0.9,
-                    )],
+                    violations=[
+                        Violation(
+                            guardrail=self.name,
+                            code="prompt_leakage_detected",
+                            message="Response contains verbatim fragment of the original prompt",
+                            severity="high",
+                            score=0.9,
+                        )
+                    ],
                     risk_score=0.9,
                 )
 
@@ -69,13 +75,15 @@ class PromptLeakageDetector(AbstractGuardrail):
         if overlap >= threshold:
             score = min(1.0, 0.5 + overlap)
             return ValidationResult.fail(
-                violations=[Violation(
-                    guardrail=self.name,
-                    code="prompt_leakage_detected",
-                    message=f"Response overlaps with prompt at {overlap:.0%}",
-                    severity="high",
-                    score=score,
-                )],
+                violations=[
+                    Violation(
+                        guardrail=self.name,
+                        code="prompt_leakage_detected",
+                        message=f"Response overlaps with prompt at {overlap:.0%}",
+                        severity="high",
+                        score=score,
+                    )
+                ],
                 risk_score=score,
             )
 

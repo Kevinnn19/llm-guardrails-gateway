@@ -12,12 +12,10 @@ Flow:
 """
 
 import time
-from dataclasses import dataclass
 
 from app.core.exceptions import MaxRetriesExceededError
 from app.core.logging import logger
 from app.guardrails.result import Violation
-from app.policies.models import Policy
 from app.providers.base import AbstractLLMProvider
 from app.providers.factory import ProviderFactory
 from app.providers.models import Message, ProviderRequest, ProviderResponse
@@ -74,18 +72,22 @@ class GatewayService:
         # 2. Override model/provider from request if provided
         if request.model:
             # Shallow copy with model override — avoid mutating the cached policy
-            from copy import deepcopy
             from app.policies.models import ProviderConfig
+
             policy = policy.model_copy(
-                update={"provider": ProviderConfig(
-                    name=request.provider or policy.provider.name,
-                    model=request.model,
-                    timeout_seconds=policy.provider.timeout_seconds,
-                )}
+                update={
+                    "provider": ProviderConfig(
+                        name=request.provider or policy.provider.name,
+                        model=request.model,
+                        timeout_seconds=policy.provider.timeout_seconds,
+                    )
+                }
             )
 
         # 3. Input validation
-        input_result = self._input_validator.validate_with_policy(request.prompt, policy)
+        input_result = self._input_validator.validate_with_policy(
+            request.prompt, policy
+        )
         all_violations: list[Violation] = list(input_result.violations)
 
         if not input_result.passed:
@@ -113,7 +115,7 @@ class GatewayService:
 
         # 4. Build conversation messages
         history: list[Message] = [
-            Message(role=m["role"], content=m["content"])
+            Message(role=m.role, content=m.content)
             for m in (request.context or [])
         ]
 
@@ -144,10 +146,14 @@ class GatewayService:
                 conversation_history=history,
             )
             try:
-                llm_response, output_result, retries_used = await self._retry_engine.run(
-                    ctx, provider
+                (
+                    llm_response,
+                    output_result,
+                    retries_used,
+                ) = await self._retry_engine.run(ctx, provider)
+                all_violations = list(input_result.violations) + list(
+                    output_result.violations
                 )
-                all_violations = list(input_result.violations) + list(output_result.violations)
             except MaxRetriesExceededError:
                 latency_ms = (time.perf_counter() - start) * 1000
                 logger.error(
@@ -160,7 +166,9 @@ class GatewayService:
                     response=policy.retry.fallback_message,
                     provider=llm_response.provider,
                     model=llm_response.model,
-                    risk_score=min(1.0, max((v.score for v in all_violations), default=0.0)),
+                    risk_score=min(
+                        1.0, max((v.score for v in all_violations), default=0.0)
+                    ),
                     violations=_to_violation_details(all_violations),
                     retries=policy.retry.max_attempts,
                     latency_ms=latency_ms,
@@ -171,7 +179,8 @@ class GatewayService:
         latency_ms = (time.perf_counter() - start) * 1000
         risk_score = (
             max((v.score for v in all_violations), default=0.0)
-            if all_violations else 0.0
+            if all_violations
+            else 0.0
         )
 
         logger.info(
