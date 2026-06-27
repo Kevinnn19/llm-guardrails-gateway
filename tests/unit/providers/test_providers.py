@@ -253,11 +253,159 @@ class TestProviderSelectionStrategyFactory:
 
 class TestProviderOrchestrator:
     @pytest.mark.asyncio
+    async def test_primary_provider_success_returns_response(self) -> None:
+        factory = MagicMock()
+        provider = AsyncMock()
+        provider.provider_name = "openai"
+        provider.complete.return_value = ProviderResponse(
+            content="primary response",
+            model="openai/gpt-4o",
+            provider="openai",
+        )
+        factory.get_provider.return_value = provider
+
+        orchestrator = ProviderOrchestrator(factory)
+        result = await orchestrator.execute(
+            _make_request(),
+            [{"model": "openai/gpt-4o"}],
+        )
+
+        assert result.content == "primary response"
+        assert provider.complete.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_primary_timeout_then_fallback_success(self) -> None:
+        factory = MagicMock()
+        first_provider = AsyncMock()
+        first_provider.provider_name = "openai"
+        first_provider.complete.side_effect = ProviderError("Request timed out")
+        second_provider = AsyncMock()
+        second_provider.provider_name = "gemini"
+        second_provider.complete.return_value = ProviderResponse(
+            content="fallback response",
+            model="gemini/gemini-2.5-flash",
+            provider="gemini",
+        )
+        factory.get_provider.side_effect = [first_provider, second_provider]
+
+        orchestrator = ProviderOrchestrator(factory)
+        result = await orchestrator.execute(
+            _make_request(),
+            [{"model": "openai/gpt-4o"}, {"model": "gemini/gemini-2.5-flash"}],
+        )
+
+        assert result.content == "fallback response"
+        assert first_provider.complete.await_count == 1
+        assert second_provider.complete.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_primary_rate_limit_then_fallback_success(self) -> None:
+        factory = MagicMock()
+        first_provider = AsyncMock()
+        first_provider.provider_name = "openai"
+        first_provider.complete.side_effect = ProviderError("Rate limit exceeded")
+        second_provider = AsyncMock()
+        second_provider.provider_name = "gemini"
+        second_provider.complete.return_value = ProviderResponse(
+            content="fallback response",
+            model="gemini/gemini-2.5-flash",
+            provider="gemini",
+        )
+        factory.get_provider.side_effect = [first_provider, second_provider]
+
+        orchestrator = ProviderOrchestrator(factory)
+        result = await orchestrator.execute(
+            _make_request(),
+            [{"model": "openai/gpt-4o"}, {"model": "gemini/gemini-2.5-flash"}],
+        )
+
+        assert result.content == "fallback response"
+        assert first_provider.complete.await_count == 1
+        assert second_provider.complete.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_authentication_error_does_not_fallback(self) -> None:
+        factory = MagicMock()
+        first_provider = AsyncMock()
+        first_provider.provider_name = "openai"
+        first_provider.complete.side_effect = ProviderError("Authentication failed")
+        second_provider = AsyncMock()
+        second_provider.provider_name = "gemini"
+        second_provider.complete.return_value = ProviderResponse(
+            content="should not be used",
+            model="gemini/gemini-2.5-flash",
+            provider="gemini",
+        )
+        factory.get_provider.side_effect = [first_provider, second_provider]
+
+        orchestrator = ProviderOrchestrator(factory)
+
+        with pytest.raises(ProviderError, match="non-recoverable"):
+            await orchestrator.execute(
+                _make_request(),
+                [{"model": "openai/gpt-4o"}, {"model": "gemini/gemini-2.5-flash"}],
+            )
+
+        assert first_provider.complete.await_count == 1
+        assert second_provider.complete.await_count == 0
+
+    @pytest.mark.asyncio
+    async def test_all_providers_fail_raises_aggregated_error(self) -> None:
+        factory = MagicMock()
+        first_provider = AsyncMock()
+        first_provider.provider_name = "openai"
+        first_provider.complete.side_effect = ProviderError("timeout exceeded")
+        second_provider = AsyncMock()
+        second_provider.provider_name = "gemini"
+        second_provider.complete.side_effect = ProviderError("temporary network error")
+        factory.get_provider.side_effect = [first_provider, second_provider]
+
+        orchestrator = ProviderOrchestrator(factory)
+
+        with pytest.raises(ProviderError, match="All providers failed"):
+            await orchestrator.execute(
+                _make_request(),
+                [{"model": "openai/gpt-4o"}, {"model": "gemini/gemini-2.5-flash"}],
+            )
+
+    @pytest.mark.asyncio
+    async def test_emits_structured_attempt_logs(self) -> None:
+        factory = MagicMock()
+        first_provider = AsyncMock()
+        first_provider.provider_name = "openai"
+        first_provider.complete.side_effect = ProviderError("Rate limit exceeded")
+        second_provider = AsyncMock()
+        second_provider.provider_name = "gemini"
+        second_provider.complete.return_value = ProviderResponse(
+            content="fallback response",
+            model="gemini/gemini-2.5-flash",
+            provider="gemini",
+        )
+        factory.get_provider.side_effect = [first_provider, second_provider]
+
+        orchestrator = ProviderOrchestrator(factory)
+
+        with patch("app.providers.provider_orchestrator.logger") as logger_mock:
+            logger_mock.bind.return_value = logger_mock
+            await orchestrator.execute(
+                _make_request(),
+                [{"model": "openai/gpt-4o"}, {"model": "gemini/gemini-2.5-flash"}],
+            )
+
+        assert logger_mock.bind.called
+        assert logger_mock.info.called
+        assert logger_mock.warning.called
+        logger_mock.info.assert_any_call("provider_attempt_started")
+        logger_mock.warning.assert_any_call("provider_attempt_failed_recoverable")
+
+    @pytest.mark.asyncio
     async def test_fails_over_for_recoverable_errors(self) -> None:
         factory = MagicMock()
         first_provider = AsyncMock()
+        first_provider.provider_name = "openai"
         first_provider.complete.side_effect = ProviderError("Rate limit exceeded")
         second_provider = AsyncMock()
+        second_provider.provider_name = "gemini"
         second_provider.complete.return_value = ProviderResponse(
             content="fallback response",
             model="gemini/gemini-2.5-flash",

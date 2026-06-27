@@ -10,9 +10,11 @@ from app.core.exceptions import MaxRetriesExceededError
 from app.guardrails.result import ValidationResult, Violation
 from app.policies.models import Policy
 from app.providers.models import Message, ProviderResponse, TokenUsage
+from app.providers.provider_orchestrator import ProviderOrchestrator
 from app.retry.engine import RetryContext, RetryEngine
 from app.retry.prompt_corrector import PromptCorrector
 from app.schemas.requests import ChatRequest
+from app.services.gateway import GatewayService
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -315,6 +317,125 @@ class TestGatewayService:
         assert resp.input_valid is False
         # Provider should NOT be called when input is blocked
         provider.complete.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_provider_chain_and_metadata_are_recorded_for_primary_response(self) -> None:
+        policy = Policy.model_validate(
+            {
+                "id": "test",
+                "provider": {
+                    "primary": {
+                        "name": "openai",
+                        "model": "gpt-4o",
+                        "timeout_seconds": 30.0,
+                    },
+                    "fallbacks": [],
+                },
+                "input_guardrails": {
+                    "prompt_injection": {"enabled": True, "action": "warn"},
+                    "toxicity": {"enabled": False},
+                },
+                "output_guardrails": {"toxicity": {"enabled": True, "threshold": 0.3}},
+                "retry": {"max_attempts": 1, "fallback_message": "Sorry, I cannot help."},
+            }
+        )
+
+        policy_service = MagicMock()
+        policy_service.get.return_value = policy
+
+        provider = _mock_provider("Primary response")
+        provider_factory = MagicMock()
+        provider_factory.get_provider.return_value = provider
+
+        input_validator = MagicMock()
+        input_validator.validate_with_policy.return_value = ValidationResult.ok()
+
+        output_validator = MagicMock()
+        output_validator.validate_with_policy.return_value = ValidationResult.ok()
+
+        orchestrator = MagicMock(spec=ProviderOrchestrator)
+        orchestrator.execute = AsyncMock(
+            return_value=ProviderResponse(
+                content="Primary response",
+                model="openai/gpt-4o",
+                provider="openai",
+            )
+        )
+
+        svc = GatewayService(
+            policy_service=policy_service,
+            provider_factory=provider_factory,
+            input_validator=input_validator,
+            output_validator=output_validator,
+            provider_orchestrator=orchestrator,
+        )
+
+        resp = await svc.chat(ChatRequest(prompt="Hello"), request_id="chain-001")
+
+        assert resp.fallback_used is False
+        assert resp.attempts == 1
+        assert resp.provider_chain == ["openai"]
+
+    @pytest.mark.asyncio
+    async def test_provider_chain_and_metadata_are_recorded_for_fallback_response(self) -> None:
+        policy = Policy.model_validate(
+            {
+                "id": "test",
+                "provider": {
+                    "primary": {
+                        "name": "openai",
+                        "model": "gpt-4o",
+                        "timeout_seconds": 30.0,
+                    },
+                    "fallbacks": [
+                        {
+                            "name": "gemini",
+                            "model": "gemini-2.5-flash",
+                            "timeout_seconds": 30.0,
+                        }
+                    ],
+                },
+                "input_guardrails": {
+                    "prompt_injection": {"enabled": True, "action": "warn"},
+                    "toxicity": {"enabled": False},
+                },
+                "output_guardrails": {"toxicity": {"enabled": True, "threshold": 0.3}},
+                "retry": {"max_attempts": 1, "fallback_message": "Sorry, I cannot help."},
+            }
+        )
+
+        policy_service = MagicMock()
+        policy_service.get.return_value = policy
+
+        provider_factory = MagicMock()
+        input_validator = MagicMock()
+        input_validator.validate_with_policy.return_value = ValidationResult.ok()
+
+        output_validator = MagicMock()
+        output_validator.validate_with_policy.return_value = ValidationResult.ok()
+
+        orchestrator = MagicMock(spec=ProviderOrchestrator)
+        orchestrator.execute = AsyncMock(
+            return_value=ProviderResponse(
+                content="Fallback response",
+                model="gemini/gemini-2.5-flash",
+                provider="gemini",
+            )
+        )
+
+        svc = GatewayService(
+            policy_service=policy_service,
+            provider_factory=provider_factory,
+            input_validator=input_validator,
+            output_validator=output_validator,
+            provider_orchestrator=orchestrator,
+        )
+
+        resp = await svc.chat(ChatRequest(prompt="Hello"), request_id="chain-002")
+
+        assert resp.fallback_used is True
+        assert resp.attempts == 2
+        assert resp.provider_chain == ["openai", "gemini"]
 
     @pytest.mark.asyncio
     async def test_input_warn_continues_to_llm(self) -> None:

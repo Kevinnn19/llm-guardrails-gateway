@@ -27,6 +27,7 @@ class ProviderOrchestrator:
 
     _RECOVERABLE_FAILURE_MARKERS = (
         "timeout",
+        "timed out",
         "rate limit",
         "quota",
         "temporar",
