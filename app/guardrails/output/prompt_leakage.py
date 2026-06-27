@@ -34,7 +34,7 @@ class PromptLeakageDetector(AbstractGuardrail):
     def validate(
         self, content: str, context: GuardrailContext | None = None
     ) -> ValidationResult:
-        ctx = context or {}
+        ctx: GuardrailContext = context or GuardrailContext()
         prompt: str = ctx.get("prompt", "")
         threshold: float = float(
             ctx.get("overlap_threshold", _DEFAULT_OVERLAP_THRESHOLD)

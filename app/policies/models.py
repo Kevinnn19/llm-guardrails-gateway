@@ -168,6 +168,21 @@ class ProviderConfig(BaseModel):
     def timeout_seconds(self) -> float:
         return self.primary.timeout_seconds
 
+    @classmethod
+    def from_legacy(cls, values: Any) -> "ProviderConfig":
+        if isinstance(values, ProviderConfig):
+            return values
+
+        if not isinstance(values, dict):
+            return cls()
+
+        primary_data = {
+            key: values[key]
+            for key in ("name", "model", "timeout_seconds")
+            if key in values
+        }
+        return cls(primary=primary_data)
+
 
 # ---------------------------------------------------------------------------
 # Retry config

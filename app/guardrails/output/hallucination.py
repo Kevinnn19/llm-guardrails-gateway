@@ -53,7 +53,7 @@ class HallucinationGuard(AbstractGuardrail):
     def validate(
         self, content: str, context: GuardrailContext | None = None
     ) -> ValidationResult:
-        ctx = context or {}
+        ctx: GuardrailContext = context or GuardrailContext()
         check_citations: bool = bool(ctx.get("check_citations", False))
 
         violations: list[Violation] = []

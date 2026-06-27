@@ -13,7 +13,7 @@ router = APIRouter(tags=["chat"])
 async def chat(
     request: ChatRequest,
     request_id: str = Depends(get_request_id_header),
-    container=Depends(get_di_container),
+    container: DIContainer = Depends(get_di_container),
 ) -> ChatResponse:
     """Process a prompt through input guardrails → LLM → output guardrails."""
     return await container.gateway_service.chat(request, request_id)

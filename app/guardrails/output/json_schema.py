@@ -23,7 +23,7 @@ class JSONSchemaValidator(AbstractGuardrail):
     def validate(
         self, content: str, context: GuardrailContext | None = None
     ) -> ValidationResult:
-        ctx = context or {}
+        ctx: GuardrailContext = context or GuardrailContext()
         schema: dict[str, Any] | None = ctx.get("schema")
         enforce_json: bool = bool(ctx.get("enforce_json", False))
 

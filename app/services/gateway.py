@@ -16,9 +16,9 @@ import time
 from app.core.exceptions import MaxRetriesExceededError
 from app.core.logging import logger
 from app.guardrails.result import Violation
-from app.providers.base import AbstractLLMProvider
 from app.providers.factory import ProviderFactory
 from app.providers.models import Message, ProviderRequest, ProviderResponse
+from app.providers.provider_orchestrator import ProviderOrchestrator
 from app.retry.engine import RetryContext, RetryEngine
 from app.retry.prompt_corrector import PromptCorrector
 from app.schemas.requests import ChatRequest
@@ -47,12 +47,22 @@ class GatewayService:
     def __init__(
         self,
         policy_service: PolicyService,
-        provider_factory: ProviderFactory,
-        input_validator: ValidationService,
-        output_validator: OutputValidationService,
+        provider_factory: ProviderFactory | None = None,
+        input_validator: ValidationService | None = None,
+        output_validator: OutputValidationService | None = None,
+        provider_orchestrator: ProviderOrchestrator | None = None,
     ) -> None:
+        if input_validator is None or output_validator is None:
+            raise ValueError("input_validator and output_validator are required")
+
+        if provider_orchestrator is None:
+            if provider_factory is None:
+                raise ValueError("provider_factory or provider_orchestrator is required")
+            provider_orchestrator = ProviderOrchestrator(provider_factory)
+
         self._policy_service = policy_service
         self._provider_factory = provider_factory
+        self._provider_orchestrator = provider_orchestrator
         self._input_validator = input_validator
         self._output_validator = output_validator
         self._corrector = PromptCorrector()
@@ -72,15 +82,19 @@ class GatewayService:
         # 2. Override model/provider from request if provided
         if request.model:
             # Shallow copy with model override — avoid mutating the cached policy
-            from app.policies.models import ProviderConfig
-
             policy = policy.model_copy(
                 update={
-                    "provider": ProviderConfig(
-                        name=request.provider or policy.provider.name,
-                        model=request.model,
-                        timeout_seconds=policy.provider.timeout_seconds,
-                    )
+                    "provider": {
+                        "primary": {
+                            "name": request.provider or policy.provider.name,
+                            "model": request.model,
+                            "timeout_seconds": policy.provider.timeout_seconds,
+                        },
+                        "fallbacks": [
+                            {"name": fallback.name, "model": fallback.model, "timeout_seconds": fallback.timeout_seconds}
+                            for fallback in policy.provider.fallbacks
+                        ],
+                    }
                 }
             )
 
@@ -120,16 +134,27 @@ class GatewayService:
         ]
 
         # 5. First LLM call
-        provider: AbstractLLMProvider = self._provider_factory.get_provider(
-            policy.litellm_model()
-        )
+        primary_model = policy.litellm_model()
+        provider_configs = [{"model": primary_model}]
+        for fallback in policy.provider.fallbacks:
+            fallback_model = (
+                fallback.model
+                if "/" in fallback.model
+                else f"{fallback.name}/{fallback.model}"
+            )
+            provider_configs.append({"model": fallback_model})
+
         provider_request = ProviderRequest(
-            model=policy.litellm_model(),
+            model=primary_model,
             messages=history + [Message(role="user", content=request.prompt)],
             timeout_seconds=policy.provider.timeout_seconds,
         )
         logger.info("Provider request = {}", provider_request.model_dump())
-        llm_response: ProviderResponse = await provider.complete(provider_request)
+        provider = None
+        llm_response: ProviderResponse = await self._provider_orchestrator.execute(
+            provider_request,
+            provider_configs,
+        )
 
         # 6. Output validation
         output_result = self._output_validator.validate_with_policy(
@@ -140,6 +165,9 @@ class GatewayService:
 
         # 7. Retry if output failed
         if not output_result.passed and policy.retry.max_attempts > 0:
+            if provider is None and self._provider_factory is not None:
+                provider = self._provider_factory.get_provider(primary_model)
+
             ctx = RetryContext(
                 prompt=request.prompt,
                 policy=policy,

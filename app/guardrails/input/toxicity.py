@@ -16,7 +16,7 @@ class ToxicityDetector(AbstractGuardrail):
     def validate(
         self, content: str, context: GuardrailContext | None = None
     ) -> ValidationResult:
-        ctx = context or {}
+        ctx: GuardrailContext = context or GuardrailContext()
         threshold: float = float(ctx.get("threshold", 0.5))
 
         normalised = normalise(content)

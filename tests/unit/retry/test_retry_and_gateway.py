@@ -333,6 +333,41 @@ class TestGatewayService:
         assert resp.output_valid is False
 
     @pytest.mark.asyncio
+    async def test_gateway_uses_provider_orchestrator_for_initial_call(self) -> None:
+        from app.services.gateway import GatewayService
+
+        policy = _make_policy(max_attempts=1)
+        policy_service = MagicMock()
+        policy_service.get.return_value = policy
+
+        provider_factory = MagicMock()
+        provider_factory.get_provider.return_value = _mock_provider("LLM response content")
+
+        input_validator = MagicMock()
+        input_validator.validate_with_policy.return_value = ValidationResult.ok()
+
+        output_validator = MagicMock()
+        output_validator.validate_with_policy.return_value = ValidationResult.ok()
+
+        orchestrator = MagicMock()
+        orchestrator.execute = AsyncMock(return_value=_provider_response("Orchestrated response"))
+
+        svc = GatewayService(
+            policy_service=policy_service,
+            provider_factory=provider_factory,
+            input_validator=input_validator,
+            output_validator=output_validator,
+            provider_orchestrator=orchestrator,
+        )
+
+        req = ChatRequest(prompt="Use orchestrator")
+        resp = await svc.chat(req, request_id="test-010")
+
+        orchestrator.execute.assert_awaited_once()
+        assert resp.response == "Orchestrated response"
+        provider_factory.get_provider.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_output_failure_triggers_retry(self) -> None:
         from app.services.gateway import GatewayService
 

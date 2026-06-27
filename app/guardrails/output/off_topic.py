@@ -72,7 +72,7 @@ class OffTopicDetector(AbstractGuardrail):
     def validate(
         self, content: str, context: GuardrailContext | None = None
     ) -> ValidationResult:
-        ctx = context or {}
+        ctx: GuardrailContext = context or GuardrailContext()
         prompt: str = ctx.get("prompt", "")
         min_overlap: float = float(ctx.get("min_overlap", _DEFAULT_MIN_OVERLAP))
 

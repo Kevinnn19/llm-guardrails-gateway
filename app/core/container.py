@@ -15,6 +15,7 @@ from app.guardrails.output.prompt_leakage import PromptLeakageDetector
 from app.guardrails.output.secret_leakage import SecretLeakageDetector
 from app.guardrails.output.toxicity import OutputToxicityDetector
 from app.providers.factory import ProviderFactory
+from app.providers.provider_orchestrator import ProviderOrchestrator
 from app.services.gateway import GatewayService
 from app.services.output_validation import OutputValidationService
 from app.services.policy import PolicyService
@@ -60,11 +61,13 @@ class Container:
             policy_dir=settings.policy_dir,
             default_policy_id=settings.default_policy_id,
         )
+        provider_orchestrator = ProviderOrchestrator(self.provider_factory)
         self.gateway_service = GatewayService(
             policy_service=self.policy_service,
             provider_factory=self.provider_factory,
             input_validator=self.input_validation_service,
             output_validator=self.output_validation_service,
+            provider_orchestrator=provider_orchestrator,
         )
 
     def startup(self) -> None:
