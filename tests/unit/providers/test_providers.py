@@ -285,6 +285,31 @@ class TestProviderOrchestrator:
         assert second_provider.complete.await_count == 0
 
     @pytest.mark.asyncio
+    async def test_emits_structured_attempt_logs(self) -> None:
+        factory = MagicMock()
+        first_provider = AsyncMock()
+        first_provider.complete.side_effect = ProviderError("Rate limit exceeded")
+        second_provider = AsyncMock()
+        second_provider.complete.return_value = ProviderResponse(
+            content="fallback response",
+            model="gemini/gemini-2.5-flash",
+            provider="gemini",
+        )
+        factory.get_provider.side_effect = [first_provider, second_provider]
+
+        orchestrator = ProviderOrchestrator(factory)
+
+        with patch("app.providers.provider_orchestrator.logger") as logger_mock:
+            logger_mock.bind.return_value = logger_mock
+            await orchestrator.execute(
+                _make_request(),
+                [{"model": "openai/gpt-4o"}, {"model": "gemini/gemini-2.5-flash"}],
+            )
+
+        assert logger_mock.bind.called
+        assert logger_mock.info.called or logger_mock.warning.called
+
+    @pytest.mark.asyncio
     async def test_raises_aggregated_error_when_all_fail(self) -> None:
         factory = MagicMock()
         first_provider = AsyncMock()

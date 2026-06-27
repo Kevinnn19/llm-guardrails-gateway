@@ -8,6 +8,7 @@ configured provider. Non-recoverable failures stop the orchestration
 immediately.
 """
 
+import time
 from collections.abc import Sequence
 
 from app.core.exceptions import ProviderError
@@ -61,8 +62,9 @@ class ProviderOrchestrator:
             ProviderError: If every configured provider fails.
         """
         failures: list[tuple[str, str]] = []
+        total_configs = len(provider_configs)
 
-        for provider_config in provider_configs:
+        for attempt, provider_config in enumerate(provider_configs, start=1):
             model = provider_config.get("model")
             if not isinstance(model, str) or not model:
                 raise ValueError(
@@ -70,20 +72,67 @@ class ProviderOrchestrator:
                 )
 
             provider: AbstractLLMProvider = self._provider_factory.get_provider(model)
+            provider_name = getattr(provider, "provider_name", "unknown")
+            started_at = time.perf_counter()
+
+            logger.bind(
+                attempt=attempt,
+                total_attempts=total_configs,
+                provider=provider_name,
+                model=model,
+            ).info("provider_attempt_started")
 
             try:
-                return await provider.complete(request.model_copy(update={"model": model}))
+                response = await provider.complete(request.model_copy(update={"model": model}))
+                latency_ms = (time.perf_counter() - started_at) * 1000
+                logger.bind(
+                    attempt=attempt,
+                    total_attempts=total_configs,
+                    provider=provider_name,
+                    model=model,
+                    latency_ms=round(latency_ms, 3),
+                ).info("provider_attempt_succeeded")
+                logger.bind(
+                    attempt=attempt,
+                    total_attempts=total_configs,
+                    provider=provider_name,
+                    model=model,
+                    latency_ms=round(latency_ms, 3),
+                ).info("provider_orchestration_returning_response")
+                return response
             except ProviderError as exc:
+                latency_ms = (time.perf_counter() - started_at) * 1000
                 reason = str(exc)
                 failures.append((model, reason))
+
                 if self._is_recoverable_failure(reason):
-                    logger.warning(
-                        "provider_failed_rolling_over model={} reason={}",
-                        model,
-                        reason,
-                    )
+                    logger.bind(
+                        attempt=attempt,
+                        total_attempts=total_configs,
+                        provider=provider_name,
+                        model=model,
+                        failure_reason=reason,
+                        latency_ms=round(latency_ms, 3),
+                    ).warning("provider_attempt_failed_recoverable")
+
+                    if attempt < total_configs:
+                        logger.bind(
+                            attempt=attempt,
+                            total_attempts=total_configs,
+                            provider=provider_name,
+                            model=model,
+                            next_attempt=attempt + 1,
+                        ).info("provider_orchestration_switching_provider")
                     continue
 
+                logger.bind(
+                    attempt=attempt,
+                    total_attempts=total_configs,
+                    provider=provider_name,
+                    model=model,
+                    failure_reason=reason,
+                    latency_ms=round(latency_ms, 3),
+                ).error("provider_attempt_failed_non_recoverable")
                 raise ProviderError(
                     f"Provider '{model}' failed with non-recoverable error: {reason}"
                 ) from exc
