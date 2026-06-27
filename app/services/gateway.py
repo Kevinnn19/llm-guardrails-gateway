@@ -41,6 +41,26 @@ def _to_violation_details(violations: list[Violation]) -> list[ViolationDetail]:
     ]
 
 
+def _build_provider_metadata(
+    provider_configs: list[dict[str, str | float | None]],
+    provider_name: str,
+) -> tuple[bool, int, list[str]]:
+    provider_chain: list[str] = []
+    for provider_config in provider_configs:
+        model = provider_config.get("model")
+        if isinstance(model, str) and model:
+            provider_chain.append(model.split("/")[0] if "/" in model else model)
+
+    if not provider_chain:
+        return False, 0, []
+
+    for index, attempted_provider in enumerate(provider_chain):
+        if attempted_provider == provider_name:
+            return index > 0, index + 1, provider_chain
+
+    return len(provider_chain) > 1, len(provider_chain), provider_chain
+
+
 class GatewayService:
     """Orchestrates input validation → LLM call → output validation → retry."""
 
@@ -121,6 +141,9 @@ class GatewayService:
                     risk_score=input_result.risk_score,
                     violations=_to_violation_details(all_violations),
                     retries=0,
+                    fallback_used=False,
+                    attempts=0,
+                    provider_chain=[],
                     latency_ms=latency_ms,
                     input_valid=False,
                     output_valid=False,
@@ -154,6 +177,10 @@ class GatewayService:
         llm_response: ProviderResponse = await self._provider_orchestrator.execute(
             provider_request,
             provider_configs,
+        )
+        fallback_used, attempts, provider_chain = _build_provider_metadata(
+            list(provider_configs),
+            llm_response.provider,
         )
 
         # 6. Output validation
@@ -199,6 +226,9 @@ class GatewayService:
                     ),
                     violations=_to_violation_details(all_violations),
                     retries=policy.retry.max_attempts,
+                    fallback_used=fallback_used,
+                    attempts=attempts,
+                    provider_chain=provider_chain,
                     latency_ms=latency_ms,
                     input_valid=input_result.passed,
                     output_valid=False,
@@ -228,6 +258,9 @@ class GatewayService:
             risk_score=risk_score,
             violations=_to_violation_details(all_violations),
             retries=retries_used,
+            fallback_used=fallback_used,
+            attempts=attempts,
+            provider_chain=provider_chain,
             latency_ms=latency_ms,
             input_valid=input_result.passed,
             output_valid=output_result.passed,

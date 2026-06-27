@@ -300,6 +300,9 @@ class TestGatewayService:
         assert resp.input_valid is True
         assert resp.output_valid is True
         assert resp.retries == 0
+        assert resp.fallback_used is False
+        assert resp.attempts == 1
+        assert resp.provider_chain == ["openai"]
         assert resp.request_id == "test-001"
 
     @pytest.mark.asyncio

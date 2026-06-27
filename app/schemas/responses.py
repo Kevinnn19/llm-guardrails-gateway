@@ -25,8 +25,11 @@ class ChatResponse(BaseModel):
     provider: str
     model: str
     risk_score: float = Field(ge=0.0, le=1.0)
-    violations: list[ViolationDetail] = []
+    violations: list[ViolationDetail] = Field(default_factory=list)
     retries: int = 0
+    fallback_used: bool = False
+    attempts: int = 0
+    provider_chain: list[str] = Field(default_factory=list)
     latency_ms: float
     input_valid: bool
     output_valid: bool
