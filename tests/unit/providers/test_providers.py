@@ -18,6 +18,7 @@ from app.providers.factory import ProviderFactory
 from app.providers.litellm_provider import LiteLLMProvider, _extract_provider
 from app.providers.models import Message, ProviderRequest, ProviderResponse
 from app.providers.provider_orchestrator import ProviderOrchestrator
+from app.providers.strategies import SequentialProviderSelectionStrategy
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -234,6 +235,20 @@ class TestProviderFactory:
         factory = ProviderFactory()
         provider = factory.get_provider("openai/gpt-4o")
         assert isinstance(provider, LiteLLMProvider)
+
+
+class TestProviderSelectionStrategyFactory:
+    def test_builds_sequential_strategy(self) -> None:
+        from app.providers.strategies import ProviderSelectionStrategyFactory
+
+        strategy = ProviderSelectionStrategyFactory().build("sequential")
+        assert isinstance(strategy, SequentialProviderSelectionStrategy)
+
+    def test_rejects_not_yet_implemented_strategies(self) -> None:
+        from app.providers.strategies import ProviderSelectionStrategyFactory
+
+        with pytest.raises(NotImplementedError, match="not implemented"):
+            ProviderSelectionStrategyFactory().build("random")
 
 
 class TestProviderOrchestrator:

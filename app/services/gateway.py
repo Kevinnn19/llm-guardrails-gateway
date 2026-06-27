@@ -177,6 +177,7 @@ class GatewayService:
         llm_response: ProviderResponse = await self._provider_orchestrator.execute(
             provider_request,
             provider_configs,
+            strategy_name=policy.provider.strategy,
         )
         fallback_used, attempts, provider_chain = _build_provider_metadata(
             list(provider_configs),

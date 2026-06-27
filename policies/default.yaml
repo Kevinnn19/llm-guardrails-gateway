@@ -3,6 +3,7 @@ version: "1.0"
 description: "Default policy — balanced security for general-purpose use"
 
 provider:
+  strategy: sequential
   primary:
     name: openai
     model: gpt-4o-mini

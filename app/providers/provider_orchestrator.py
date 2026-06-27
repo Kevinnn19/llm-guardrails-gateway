@@ -16,6 +16,10 @@ from app.core.logging import logger
 from app.providers.base import AbstractLLMProvider
 from app.providers.factory import ProviderFactory
 from app.providers.models import ProviderRequest, ProviderResponse
+from app.providers.strategies import (
+    ProviderSelectionStrategy,
+    ProviderSelectionStrategyFactory,
+)
 
 
 class ProviderOrchestrator:
@@ -30,19 +34,26 @@ class ProviderOrchestrator:
         "connection",
     )
 
-    def __init__(self, provider_factory: ProviderFactory) -> None:
+    def __init__(
+        self,
+        provider_factory: ProviderFactory,
+        strategy: ProviderSelectionStrategy | None = None,
+    ) -> None:
         """Create an orchestrator bound to a provider factory.
 
         Args:
             provider_factory: Factory that resolves model strings to provider
                 implementations.
+            strategy: Selection strategy used to order provider attempts.
         """
         self._provider_factory = provider_factory
+        self._strategy = strategy or ProviderSelectionStrategyFactory().build("sequential")
 
     async def execute(
         self,
         request: ProviderRequest,
         provider_configs: Sequence[dict[str, str | float | None]],
+        strategy_name: str | None = None,
     ) -> ProviderResponse:
         """Attempt each configured provider in order until one succeeds.
 
@@ -61,10 +72,15 @@ class ProviderOrchestrator:
         Raises:
             ProviderError: If every configured provider fails.
         """
-        failures: list[tuple[str, str]] = []
-        total_configs = len(provider_configs)
+        strategy = self._strategy
+        if strategy_name is not None:
+            strategy = ProviderSelectionStrategyFactory().build(strategy_name)
 
-        for attempt, provider_config in enumerate(provider_configs, start=1):
+        ordered_configs = strategy.select(provider_configs)
+        failures: list[tuple[str, str]] = []
+        total_configs = len(ordered_configs)
+
+        for attempt, provider_config in enumerate(ordered_configs, start=1):
             model = provider_config.get("model")
             if not isinstance(model, str) or not model:
                 raise ValueError(
