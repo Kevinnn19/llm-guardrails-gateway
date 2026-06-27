@@ -1,0 +1,37 @@
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*.pyo
+.venv
+*.egg-info
+.eggs
+
+# Testing / CI
+tests/
+.pytest_cache
+.coverage
+coverage.xml
+htmlcov/
+.github/
+
+# Docs
+docs/
+*.md
+!policies/
+
+# Dev tooling
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Docker
+docker/

@@ -1,0 +1,68 @@
+id: default
+version: "1.0"
+description: "Default policy — balanced security for general-purpose use"
+
+provider:
+  name: ollama
+  model: ollama/qwen2.5:7b
+  timeout_seconds: 50
+
+input_guardrails:
+  prompt_injection:
+    enabled: true
+    threshold: 0.75
+    action: block       # block | warn | log
+  jailbreak:
+    enabled: true
+    threshold: 0.75
+    action: block
+  pii:
+    enabled: true
+    action: block
+    entities: [EMAIL, PHONE, SSN, CREDIT_CARD]
+  secrets:
+    enabled: true
+    action: block
+  token_length:
+    enabled: true
+    max_tokens: 4096
+    action: block
+  language:
+    enabled: false
+    allowed: [en]
+    action: block
+  toxicity:
+    enabled: true
+    threshold: 0.85
+    action: block
+
+output_guardrails:
+  json_schema:
+    enabled: false
+    schema_ref: null
+  toxicity:
+    enabled: true
+    threshold: 0.85
+    action: block
+  prompt_leakage:
+    enabled: true
+    action: block
+  secret_leakage:
+    enabled: true
+    action: block
+  off_topic:
+    enabled: false
+    action: warn
+  hallucination:
+    enabled: false
+    action: warn
+
+retry:
+  max_attempts: 3
+  strategy: correct_and_retry   # correct_and_retry | static_fallback
+  fallback_message: "I'm unable to process this request safely. Please rephrase or contact support."
+
+compliance:
+  block_topics: []
+  require_citations: false
+  block_competitors: []
