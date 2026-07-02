@@ -366,6 +366,11 @@ class TestGatewayService:
                 content="Primary response",
                 model="openai/gpt-4o",
                 provider="openai",
+                raw={
+                    "provider_chain": ["openai"],
+                    "attempts": 1,
+                    "fallback_used": False,
+                },
             )
         )
 
@@ -434,6 +439,11 @@ class TestGatewayService:
                 content="Fallback response",
                 model="gemini/gemini-2.5-flash",
                 provider="gemini",
+                raw={
+                    "provider_chain": ["openai", "gemini"],
+                    "attempts": 2,
+                    "fallback_used": True,
+                },
             )
         )
 

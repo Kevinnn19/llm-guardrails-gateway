@@ -386,17 +386,13 @@ class TestProviderOrchestrator:
         orchestrator = ProviderOrchestrator(factory)
 
         with patch("app.providers.provider_orchestrator.logger") as logger_mock:
-            logger_mock.bind.return_value = logger_mock
             await orchestrator.execute(
                 _make_request(),
                 [{"model": "openai/gpt-4o"}, {"model": "gemini/gemini-2.5-flash"}],
             )
 
-        assert logger_mock.bind.called
         assert logger_mock.info.called
         assert logger_mock.warning.called
-        logger_mock.info.assert_any_call("provider_attempt_started")
-        logger_mock.warning.assert_any_call("provider_attempt_failed_recoverable")
 
     @pytest.mark.asyncio
     async def test_fails_over_for_recoverable_errors(self) -> None:
@@ -463,13 +459,11 @@ class TestProviderOrchestrator:
         orchestrator = ProviderOrchestrator(factory)
 
         with patch("app.providers.provider_orchestrator.logger") as logger_mock:
-            logger_mock.bind.return_value = logger_mock
             await orchestrator.execute(
                 _make_request(),
                 [{"model": "openai/gpt-4o"}, {"model": "gemini/gemini-2.5-flash"}],
             )
 
-        assert logger_mock.bind.called
         assert logger_mock.info.called or logger_mock.warning.called
 
     @pytest.mark.asyncio

@@ -82,26 +82,11 @@ class GatewayService:
 
         # 2. Override model/provider from request if provided
         if request.model:
-            # Shallow copy with model override — avoid mutating the cached policy
-            policy = policy.model_copy(
-                update={
-                    "provider": {
-                        "primary": {
-                            "name": request.provider or policy.provider.name,
-                            "model": request.model,
-                            "timeout_seconds": policy.provider.timeout_seconds,
-                        },
-                        "fallbacks": [
-                            {
-                                "name": fallback.name,
-                                "model": fallback.model,
-                                "timeout_seconds": fallback.timeout_seconds,
-                            }
-                            for fallback in policy.provider.fallbacks
-                        ],
-                    }
-                }
-            )
+            # Deep copy with model override — avoid mutating the cached policy
+            policy = policy.model_copy(deep=True)
+            policy.provider.primary.model = request.model
+            if request.provider:
+                policy.provider.primary.name = request.provider
 
         # 3. Input validation
         input_result = self._input_validator.validate_with_policy(
