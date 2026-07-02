@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     # LLM Provider defaults (overridden per-request via policy)
     openai_api_key: str = Field(default="", repr=False)
-    anthropic_api_key: str = Field(default="", repr=False)
+    deepseek_api_key: str = Field(default="", repr=False)
     google_api_key: str = Field(default="", repr=False)
     ollama_base_url: str = "http://localhost:11434"
 

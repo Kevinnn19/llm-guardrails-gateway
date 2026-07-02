@@ -4,6 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.providers.models import ProviderAttempt
+
 
 class ViolationDetail(BaseModel):
     guardrail: str
@@ -29,6 +31,7 @@ class ChatResponse(BaseModel):
     retries: int = 0
     fallback_used: bool = False
     attempts: int = 0
+    attempt_history: list[ProviderAttempt] = Field(default_factory=list)
     provider_chain: list[str] = Field(default_factory=list)
     latency_ms: float
     input_valid: bool

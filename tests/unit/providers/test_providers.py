@@ -59,8 +59,8 @@ class TestExtractProvider:
     def test_extracts_prefix(self) -> None:
         assert _extract_provider("openai/gpt-4o") == "openai"
 
-    def test_extracts_anthropic(self) -> None:
-        assert _extract_provider("anthropic/claude-3-5-sonnet-20241022") == "anthropic"
+    def test_extracts_deepseek(self) -> None:
+        assert _extract_provider("deepseek/deepseek-chat") == "deepseek"
 
     def test_no_slash_returns_unknown(self) -> None:
         assert _extract_provider("gpt-4o") == "unknown"
@@ -369,7 +369,7 @@ class TestProviderOrchestrator:
             )
 
     @pytest.mark.asyncio
-    async def test_emits_structured_attempt_logs(self) -> None:
+    async def test_emits_structured_attempt_logs_with_provider_name(self) -> None:
         factory = MagicMock()
         first_provider = AsyncMock()
         first_provider.provider_name = "openai"
@@ -489,10 +489,8 @@ class TestProviderOrchestrator:
                 [{"model": "openai/gpt-4o"}, {"model": "gemini/gemini-2.5-flash"}],
             )
 
-    def test_anthropic_returns_litellm_provider(self) -> None:
-        provider = ProviderFactory().get_provider(
-            "anthropic/claude-3-5-sonnet-20241022"
-        )
+    def test_deepseek_returns_litellm_provider(self) -> None:
+        provider = ProviderFactory().get_provider("deepseek/deepseek-chat")
         assert isinstance(provider, LiteLLMProvider)
 
     def test_gemini_returns_litellm_provider(self) -> None:
@@ -510,7 +508,7 @@ class TestProviderOrchestrator:
     def test_singleton_same_instance_returned(self) -> None:
         factory = ProviderFactory()
         assert factory.get_provider("openai/gpt-4o") is factory.get_provider(
-            "anthropic/claude-3-5-sonnet-20241022"
+            "deepseek/deepseek-chat"
         )
 
     def test_model_without_prefix_routes_to_litellm(self) -> None:

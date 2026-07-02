@@ -37,7 +37,10 @@ _FAKE_CITATION: re.Pattern[str] = re.compile(
 _CONTRADICTION: list[re.Pattern[str]] = [
     re.compile(p, re.IGNORECASE)
     for p in [
-        r"\b(however|but|on the other hand|conversely)\b.{0,80}\b(earlier|above|previously)\b",
+        (
+            r"\b(however|but|on the other hand|conversely)\b"
+            r".{0,80}\b(earlier|above|previously)\b"
+        ),
         r"\bcontradicts?\b",
     ]
 ]
@@ -65,7 +68,10 @@ class HallucinationGuard(AbstractGuardrail):
                 Violation(
                     guardrail=self.name,
                     code="hallucination_signal",
-                    message=f"Overconfident language detected ({len(overconfident_hits)} pattern(s))",
+                    message=(
+                        f"Overconfident language detected "
+                        f"({len(overconfident_hits)} pattern(s))"
+                    ),
                     severity="medium",
                     score=0.6,
                 )
@@ -79,7 +85,10 @@ class HallucinationGuard(AbstractGuardrail):
                     Violation(
                         guardrail=self.name,
                         code="possible_fabricated_citation",
-                        message=f"Possible fabricated citation(s): {citation_matches[:3]}",
+                    message=(
+                        f"Possible fabricated citation(s): "
+                        f"{citation_matches[:3]}"
+                    ),
                         severity="medium",
                         score=0.65,
                     )

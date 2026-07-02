@@ -56,7 +56,10 @@ class PromptLeakageDetector(AbstractGuardrail):
                         Violation(
                             guardrail=self.name,
                             code="prompt_leakage_detected",
-                            message="Response contains verbatim fragment of the original prompt",
+                            message=(
+                                "Response contains verbatim fragment "
+                                "of the original prompt"
+                            ),
                             severity="high",
                             score=0.9,
                         )

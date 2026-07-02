@@ -30,7 +30,10 @@ class TokenLengthValidator(AbstractGuardrail):
                 Violation(
                     guardrail=self.name,
                     code="token_limit_exceeded",
-                    message=f"Estimated token count {estimated} exceeds limit {max_tokens}",
+                    message=(
+                        f"Estimated token count {estimated} exceeds "
+                        f"limit {max_tokens}"
+                    ),
                     severity="medium",
                     score=score,
                 )

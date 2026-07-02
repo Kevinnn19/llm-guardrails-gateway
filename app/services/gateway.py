@@ -40,27 +40,6 @@ def _to_violation_details(violations: list[Violation]) -> list[ViolationDetail]:
         for v in violations
     ]
 
-
-def _build_provider_metadata(
-    provider_configs: list[dict[str, str | float | None]],
-    provider_name: str,
-) -> tuple[bool, int, list[str]]:
-    provider_chain: list[str] = []
-    for provider_config in provider_configs:
-        model = provider_config.get("model")
-        if isinstance(model, str) and model:
-            provider_chain.append(model.split("/")[0] if "/" in model else model)
-
-    if not provider_chain:
-        return False, 0, []
-
-    for index, attempted_provider in enumerate(provider_chain):
-        if attempted_provider == provider_name:
-            return index > 0, index + 1, provider_chain
-
-    return len(provider_chain) > 1, len(provider_chain), provider_chain
-
-
 class GatewayService:
     """Orchestrates input validation → LLM call → output validation → retry."""
 
@@ -77,7 +56,9 @@ class GatewayService:
 
         if provider_orchestrator is None:
             if provider_factory is None:
-                raise ValueError("provider_factory or provider_orchestrator is required")
+                raise ValueError(
+                    "provider_factory or provider_orchestrator is required"
+                )
             provider_orchestrator = ProviderOrchestrator(provider_factory)
 
         self._policy_service = policy_service
@@ -111,7 +92,11 @@ class GatewayService:
                             "timeout_seconds": policy.provider.timeout_seconds,
                         },
                         "fallbacks": [
-                            {"name": fallback.name, "model": fallback.model, "timeout_seconds": fallback.timeout_seconds}
+                            {
+                                "name": fallback.name,
+                                "model": fallback.model,
+                                "timeout_seconds": fallback.timeout_seconds,
+                            }
                             for fallback in policy.provider.fallbacks
                         ],
                     }
@@ -143,6 +128,7 @@ class GatewayService:
                     retries=0,
                     fallback_used=False,
                     attempts=0,
+                    attempt_history=[],
                     provider_chain=[],
                     latency_ms=latency_ms,
                     input_valid=False,
@@ -158,7 +144,9 @@ class GatewayService:
 
         # 5. First LLM call
         primary_model = policy.litellm_model()
-        provider_configs = [{"model": primary_model}]
+        provider_configs: list[dict[str, str | float | None]] = [
+            {"model": primary_model}
+        ]
         for fallback in policy.provider.fallbacks:
             fallback_model = (
                 fallback.model
@@ -169,19 +157,14 @@ class GatewayService:
 
         provider_request = ProviderRequest(
             model=primary_model,
-            messages=history + [Message(role="user", content=request.prompt)],
+            messages=[*history, Message(role="user", content=request.prompt)],
             timeout_seconds=policy.provider.timeout_seconds,
         )
         logger.info("Provider request = {}", provider_request.model_dump())
-        provider = None
         llm_response: ProviderResponse = await self._provider_orchestrator.execute(
             provider_request,
             provider_configs,
             strategy_name=policy.provider.strategy,
-        )
-        fallback_used, attempts, provider_chain = _build_provider_metadata(
-            list(provider_configs),
-            llm_response.provider,
         )
 
         # 6. Output validation
@@ -193,47 +176,52 @@ class GatewayService:
 
         # 7. Retry if output failed
         if not output_result.passed and policy.retry.max_attempts > 0:
-            if provider is None and self._provider_factory is not None:
-                provider = self._provider_factory.get_provider(primary_model)
-
-            ctx = RetryContext(
-                prompt=request.prompt,
-                policy=policy,
-                conversation_history=history,
+            retry_provider = (
+                self._provider_factory.get_provider(primary_model)
+                if self._provider_factory is not None
+                else None
             )
-            try:
-                (
-                    llm_response,
-                    output_result,
-                    retries_used,
-                ) = await self._retry_engine.run(ctx, provider)
-                all_violations = list(input_result.violations) + list(
-                    output_result.violations
+
+            if retry_provider is not None:
+                ctx = RetryContext(
+                    prompt=request.prompt,
+                    policy=policy,
+                    conversation_history=history,
                 )
-            except MaxRetriesExceededError:
-                latency_ms = (time.perf_counter() - start) * 1000
-                logger.error(
-                    "max_retries_exceeded request_id={} attempts={}",
-                    request_id,
-                    policy.retry.max_attempts,
-                )
-                return ChatResponse(
-                    request_id=request_id,
-                    response=policy.retry.fallback_message,
-                    provider=llm_response.provider,
-                    model=llm_response.model,
-                    risk_score=min(
-                        1.0, max((v.score for v in all_violations), default=0.0)
-                    ),
-                    violations=_to_violation_details(all_violations),
-                    retries=policy.retry.max_attempts,
-                    fallback_used=fallback_used,
-                    attempts=attempts,
-                    provider_chain=provider_chain,
-                    latency_ms=latency_ms,
-                    input_valid=input_result.passed,
-                    output_valid=False,
-                )
+                try:
+                    (
+                        llm_response,
+                        output_result,
+                        retries_used,
+                    ) = await self._retry_engine.run(ctx, retry_provider)
+                    all_violations = list(input_result.violations) + list(
+                        output_result.violations
+                    )
+                except MaxRetriesExceededError:
+                    latency_ms = (time.perf_counter() - start) * 1000
+                    logger.error(
+                        "max_retries_exceeded request_id={} attempts={}",
+                        request_id,
+                        policy.retry.max_attempts,
+                    )
+                    return ChatResponse(
+                        request_id=request_id,
+                        response=policy.retry.fallback_message,
+                        provider=llm_response.provider,
+                        model=llm_response.model,
+                        risk_score=min(
+                            1.0,
+                            max((v.score for v in all_violations), default=0.0),
+                        ),
+                        violations=_to_violation_details(all_violations),
+                        retries=policy.retry.max_attempts,
+                        fallback_used=llm_response.raw.get("fallback_used", False),
+                        attempts=llm_response.raw.get("attempts", 1),
+                        provider_chain=llm_response.raw.get("provider_chain", []),
+                        latency_ms=latency_ms,
+                        input_valid=input_result.passed,
+                        output_valid=False,
+                    )
 
         latency_ms = (time.perf_counter() - start) * 1000
         risk_score = (
@@ -243,7 +231,8 @@ class GatewayService:
         )
 
         logger.info(
-            "chat_complete request_id={} provider={} retries={} latency_ms={:.1f} risk={:.2f}",
+            "chat_complete request_id={} provider={} retries={} "
+            "latency_ms={:.1f} risk={:.2f}",
             request_id,
             llm_response.provider,
             retries_used,
@@ -259,9 +248,9 @@ class GatewayService:
             risk_score=risk_score,
             violations=_to_violation_details(all_violations),
             retries=retries_used,
-            fallback_used=fallback_used,
-            attempts=attempts,
-            provider_chain=provider_chain,
+            fallback_used=llm_response.raw.get("fallback_used", False),
+            attempts=llm_response.raw.get("attempts", 1),
+            provider_chain=llm_response.raw.get("provider_chain", []),
             latency_ms=latency_ms,
             input_valid=input_result.passed,
             output_valid=output_result.passed,

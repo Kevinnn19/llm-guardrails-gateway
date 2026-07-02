@@ -96,7 +96,10 @@ class OffTopicDetector(AbstractGuardrail):
                 Violation(
                     guardrail=self.name,
                     code="off_topic_response",
-                    message=f"Response keyword overlap with prompt is {overlap:.0%} (min {min_overlap:.0%})",
+                    message=(
+                        f"Response keyword overlap with prompt is "
+                        f"{overlap:.0%} (min {min_overlap:.0%})"
+                    ),
                     severity="medium",
                     score=score,
                 )

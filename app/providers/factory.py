@@ -6,7 +6,7 @@ deployment with a custom SDK), register it here without touching call sites.
 
 Supported model prefixes:
     openai/...        → OpenAI via LiteLLM
-    anthropic/...     → Anthropic via LiteLLM
+    deepseek/...      → DeepSeek via LiteLLM
     gemini/...        → Google Gemini via LiteLLM
     ollama/...        → Ollama via LiteLLM
     <no prefix>       → passed to LiteLLM as-is (default OpenAI behaviour)
@@ -18,7 +18,7 @@ from app.providers.litellm_provider import LiteLLMProvider
 
 # Providers that route through LiteLLM — extend this set to add new ones
 _LITELLM_PREFIXES: frozenset[str] = frozenset(
-    {"openai", "anthropic", "gemini", "ollama", "azure", "cohere", "huggingface"}
+    {"openai", "deepseek", "gemini", "ollama", "azure", "cohere", "huggingface"}
 )
 
 # Module-level singleton — LiteLLMProvider is stateless so one instance suffices

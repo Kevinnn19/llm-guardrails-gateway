@@ -17,6 +17,7 @@ def create_app() -> FastAPI:
     """Construct and configure the FastAPI application."""
     setup_logging()
     settings = get_settings()
+    print("Loaded OpenAI Key Prefix:", settings.openai_api_key[:10])
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:

@@ -1,8 +1,9 @@
 """Policy management endpoints."""
 
 from fastapi import APIRouter, Depends
-from app.core.container import Container
+
 from app.api.dependencies import get_di_container, get_request_id_header
+from app.core.container import Container
 from app.schemas.requests import ReloadPolicyRequest
 from app.schemas.responses import PoliciesResponse, PolicySummary, ReloadPolicyResponse
 
@@ -34,7 +35,7 @@ async def list_policies(
 async def reload_policy(
     request: ReloadPolicyRequest,
     request_id: str = Depends(get_request_id_header),
-    container=Depends(get_di_container),
+    container: Container = Depends(get_di_container),
 ) -> ReloadPolicyResponse:
     """Trigger hot-reload of one or all policy files from disk."""
     svc = container.policy_service

@@ -15,7 +15,11 @@ from app.core.exceptions import ProviderError
 from app.core.logging import logger
 from app.providers.base import AbstractLLMProvider
 from app.providers.factory import ProviderFactory
-from app.providers.models import ProviderRequest, ProviderResponse
+from app.providers.models import (
+    ProviderAttempt,
+    ProviderRequest,
+    ProviderResponse,
+)
 from app.providers.strategies import (
     ProviderSelectionStrategy,
     ProviderSelectionStrategyFactory,
@@ -48,7 +52,9 @@ class ProviderOrchestrator:
             strategy: Selection strategy used to order provider attempts.
         """
         self._provider_factory = provider_factory
-        self._strategy = strategy or ProviderSelectionStrategyFactory().build("sequential")
+        self._strategy = strategy or ProviderSelectionStrategyFactory().build(
+            "sequential"
+        )
 
     async def execute(
         self,
@@ -79,6 +85,8 @@ class ProviderOrchestrator:
 
         ordered_configs = strategy.select(provider_configs)
         failures: list[tuple[str, str]] = []
+        attempted_providers: list[str] = []
+        attempt_history: list[ProviderAttempt] = []
         total_configs = len(ordered_configs)
 
         for attempt, provider_config in enumerate(ordered_configs, start=1):
@@ -89,67 +97,83 @@ class ProviderOrchestrator:
                 )
 
             provider: AbstractLLMProvider = self._provider_factory.get_provider(model)
-            provider_name = getattr(provider, "provider_name", "unknown")
+            attempted_providers.append(model.split("/")[0])
             started_at = time.perf_counter()
 
-            logger.bind(
-                attempt=attempt,
-                total_attempts=total_configs,
-                provider=provider_name,
-                model=model,
-            ).info("provider_attempt_started")
+            logger.info(
+                "Provider {}/{} | {} | {} | Attempt started",
+                attempt,
+                total_configs,
+                model.split("/")[0],
+                model,
+            )
 
             try:
-                response = await provider.complete(request.model_copy(update={"model": model}))
+                response = await provider.complete(
+                    request.model_copy(update={"model": model})
+                )
                 latency_ms = (time.perf_counter() - started_at) * 1000
-                logger.bind(
-                    attempt=attempt,
-                    total_attempts=total_configs,
-                    provider=provider_name,
-                    model=model,
-                    latency_ms=round(latency_ms, 3),
-                ).info("provider_attempt_succeeded")
-                logger.bind(
-                    attempt=attempt,
-                    total_attempts=total_configs,
-                    provider=provider_name,
-                    model=model,
-                    latency_ms=round(latency_ms, 3),
-                ).info("provider_orchestration_returning_response")
+                logger.info(
+                    "Provider {}/{} | {} | Success | {:.2f} ms",
+                    attempt,
+                    total_configs,
+                    model.split("/")[0],
+                    latency_ms,
+                )
+                logger.info(
+                    "Provider {} selected. Returning response to Gateway.",
+                    model.split("/")[0],
+                )
+                response.raw["provider_chain"] = attempted_providers
+                response.raw["attempts"] = attempt
+                response.raw["fallback_used"] = attempt > 1
+                attempt_history.append(
+                    ProviderAttempt(
+                        provider=model.split("/")[0],
+                        status="success",
+                        latency_ms=latency_ms,
+                    )
+                )
+
+                response.attempt_history = attempt_history
                 return response
             except ProviderError as exc:
                 latency_ms = (time.perf_counter() - started_at) * 1000
                 reason = str(exc)
+                attempt_history.append(
+                    ProviderAttempt(
+                        provider=model.split("/")[0],
+                        status="failed",
+                        latency_ms=latency_ms,
+                        reason=reason,
+                    )
+                )
                 failures.append((model, reason))
 
                 if self._is_recoverable_failure(reason):
-                    logger.bind(
-                        attempt=attempt,
-                        total_attempts=total_configs,
-                        provider=provider_name,
-                        model=model,
-                        failure_reason=reason,
-                        latency_ms=round(latency_ms, 3),
-                    ).warning("provider_attempt_failed_recoverable")
+                    logger.warning(
+                        "Provider {}/{} | {} | Recoverable Failure | {}",
+                        attempt,
+                        total_configs,
+                        model.split("/")[0],
+                        reason,
+                    )
 
                     if attempt < total_configs:
-                        logger.bind(
-                            attempt=attempt,
-                            total_attempts=total_configs,
-                            provider=provider_name,
-                            model=model,
-                            next_attempt=attempt + 1,
-                        ).info("provider_orchestration_switching_provider")
+                        logger.info(
+                            "Switching to provider {}/{}",
+                            attempt + 1,
+                            total_configs,
+                        )
                     continue
 
-                logger.bind(
-                    attempt=attempt,
-                    total_attempts=total_configs,
-                    provider=provider_name,
-                    model=model,
-                    failure_reason=reason,
-                    latency_ms=round(latency_ms, 3),
-                ).error("provider_attempt_failed_non_recoverable")
+                logger.error(
+                    "Provider {}/{} | {} | Non-Recoverable Failure | {}",
+                    attempt,
+                    total_configs,
+                    model.split("/")[0],
+                    reason,
+                )
                 raise ProviderError(
                     f"Provider '{model}' failed with non-recoverable error: {reason}"
                 ) from exc

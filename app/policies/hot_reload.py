@@ -20,6 +20,7 @@ from watchdog.events import (
     FileSystemEventHandler,
 )
 from watchdog.observers import Observer
+from watchdog.observers.api import BaseObserver
 
 from app.core.logging import logger
 
@@ -52,7 +53,7 @@ class PolicyHotReloader:
     def __init__(self, watch_dir: Path, on_change: Callable[[Path], None]) -> None:
         self._watch_dir = watch_dir
         self._handler = _PolicyFileHandler(on_change)
-        self._observer: Observer | None = None
+        self._observer: BaseObserver | None = None
         self._lock = threading.Lock()
 
     def start(self) -> None:

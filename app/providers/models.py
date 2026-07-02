@@ -32,13 +32,18 @@ class TokenUsage(BaseModel):
     completion_tokens: int
     total_tokens: int
 
+class ProviderAttempt(BaseModel):
+    provider: str
+    status: str
+    reason: str | None = None
 
 class ProviderResponse(BaseModel):
     """Normalised LLM response returned to the rest of the gateway."""
 
     content: str
     model: str  # model that actually served the request (may differ from requested)
-    provider: str  # e.g. "openai", "anthropic", "ollama"
+    provider: str  # e.g. "openai", "deepseek", "ollama"
     usage: TokenUsage | None = None
     latency_ms: float = 0.0
     raw: dict[str, Any] = Field(default_factory=dict, repr=False)  # original response
+    attempt_history: list[ProviderAttempt] = Field(default_factory=list)

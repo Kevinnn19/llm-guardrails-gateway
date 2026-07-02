@@ -170,8 +170,8 @@ provider:
     model: gpt-4o
     timeout_seconds: 30
   fallbacks:
-    - name: anthropic
-      model: claude-3-5-sonnet-20241022
+    - name: deepseek
+      model: deepseek-chat
       timeout_seconds: 30
   strategy: sequential
 

@@ -1,8 +1,8 @@
 """LiteLLM-backed provider implementation.
 
-A single class covers all LiteLLM-supported providers (OpenAI, Anthropic,
+A single class covers all LiteLLM-supported providers (OpenAI, DeepSeek,
 Gemini, Ollama, etc.). The `model` field on ProviderRequest uses LiteLLM's
-routing syntax: "openai/gpt-4o", "anthropic/claude-3-5-sonnet-20241022",
+routing syntax: "openai/gpt-4o", "deepseek/deepseek-chat",
 "gemini/gemini-1.5-pro", "ollama/llama3".
 
 Adding a new provider requires zero changes here — just a new model string.
@@ -12,6 +12,11 @@ import time
 from typing import Any
 
 import litellm
+from litellm.exceptions import (
+    AuthenticationError,
+    BadRequestError,
+    RateLimitError,
+)
 
 from app.core.exceptions import ProviderError
 from app.core.logging import logger
@@ -63,15 +68,15 @@ class LiteLLMProvider(AbstractLLMProvider):
 
         try:
             response = await litellm.acompletion(**kwargs)
-        except litellm.AuthenticationError as exc:
+        except AuthenticationError as exc:
             raise ProviderError(
                 f"Authentication failed for {request.model}: {exc}"
             ) from exc
-        except litellm.RateLimitError as exc:
+        except RateLimitError as exc:
             raise ProviderError(
                 f"Rate limit exceeded for {request.model}: {exc}"
             ) from exc
-        except litellm.BadRequestError as exc:
+        except BadRequestError as exc:
             raise ProviderError(f"Bad request to {request.model}: {exc}") from exc
         except Exception as exc:
             raise ProviderError(

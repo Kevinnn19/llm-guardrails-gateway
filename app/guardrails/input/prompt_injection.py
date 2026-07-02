@@ -27,7 +27,10 @@ class PromptInjectionDetector(AbstractGuardrail):
                 Violation(
                     guardrail=self.name,
                     code="prompt_injection_detected",
-                    message=f"Prompt injection pattern detected ({len(matches)} match(es))",
+                    message=(
+                        f"Prompt injection pattern detected "
+                        f"({len(matches)} match(es))"
+                    ),
                     severity="critical",
                     score=score,
                 )

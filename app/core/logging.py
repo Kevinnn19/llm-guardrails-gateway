@@ -3,6 +3,7 @@
 import sys
 from contextvars import ContextVar
 
+import loguru
 from loguru import logger
 
 from app.core.config import get_settings
@@ -19,7 +20,7 @@ def set_request_id(request_id: str) -> None:
     _request_id_var.set(request_id)
 
 
-def _formatter(record: dict) -> str:  # type: ignore[type-arg]
+def _formatter(record: dict) -> str:
     record["extra"].setdefault("request_id", get_request_id())
     return (
         "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "

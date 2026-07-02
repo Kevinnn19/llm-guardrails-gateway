@@ -1,8 +1,9 @@
 """Chat router — primary LLM request endpoint."""
 
 from fastapi import APIRouter, Depends
-from app.core.container import Container
+
 from app.api.dependencies import get_di_container, get_request_id_header
+from app.core.container import Container
 from app.schemas.requests import ChatRequest
 from app.schemas.responses import ChatResponse
 

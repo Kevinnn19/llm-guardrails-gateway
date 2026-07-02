@@ -13,6 +13,7 @@ each call. This makes it trivially testable and safe to use as a singleton.
 """
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from app.core.exceptions import MaxRetriesExceededError
 from app.core.logging import logger
@@ -34,7 +35,7 @@ class RetryContext:
     conversation_history: list[Message] = field(default_factory=list)
     attempts: int = 0
     last_response: ProviderResponse | None = None
-    all_violations: list = field(default_factory=list)
+    all_violations: list[Any] = field(default_factory=list)
 
 
 class RetryEngine:
@@ -78,9 +79,7 @@ class RetryEngine:
             logger.info("retry_attempt attempt={} max={}", attempt, max_attempts)
 
             # Build messages
-            messages = list(ctx.conversation_history) + [
-                Message(role="user", content=current_prompt)
-            ]
+            messages = [*ctx.conversation_history, Message(role="user", content=current_prompt)]
 
             # Call provider
             request = ProviderRequest(

@@ -78,7 +78,10 @@ class LanguageValidator(AbstractGuardrail):
                 Violation(
                     guardrail=self.name,
                     code="language_not_allowed",
-                    message=f"Detected language '{detected}' is not in allowed list {allowed}",
+                    message=(
+                        f"Detected language '{detected}' is not in allowed "
+                        f"list {allowed}"
+                    ),
                     severity="medium",
                     score=0.8,
                 )

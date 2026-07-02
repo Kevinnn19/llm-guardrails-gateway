@@ -1,6 +1,6 @@
 # LLM Guardrails Gateway
 
-A provider-agnostic middleware service that enforces security, compliance, and response validation for Large Language Model APIs. Sits between your application and any LLM provider — OpenAI, Anthropic, Gemini, Ollama — and applies configurable guardrails before requests reach the model and before responses reach the client.
+A provider-agnostic middleware service that enforces security, compliance, and response validation for Large Language Model APIs. Sits between your application and any LLM provider — OpenAI, DeepSeek, Gemini, Ollama — and applies configurable guardrails before requests reach the model and before responses reach the client.
 
 ## Features
 
@@ -380,7 +380,7 @@ retry:
 | `POLICY_DIR` | `policies` | Path to policy YAML files |
 | `DEFAULT_POLICY_ID` | `default` | Fallback policy when none specified |
 | `OPENAI_API_KEY` | — | OpenAI API key |
-| `ANTHROPIC_API_KEY` | — | Anthropic API key |
+| `DEEPSEEK_API_KEY` | — | DeepSeek API key |
 | `GOOGLE_API_KEY` | — | Google Gemini API key |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama base URL |
 

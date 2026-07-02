@@ -1,9 +1,10 @@
 """Health check router."""
 
 from fastapi import APIRouter, Depends
-from app.core.container import Container
+
 from app.api.dependencies import get_di_container
 from app.core.config import get_settings
+from app.core.container import Container
 from app.schemas.responses import HealthResponse
 
 router = APIRouter(tags=["health"])

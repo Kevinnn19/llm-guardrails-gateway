@@ -1,16 +1,18 @@
 """Validation endpoints for standalone input/output guardrail checks."""
 
 from fastapi import APIRouter, Depends
-from app.core.container import Container
+
 from app.api.dependencies import get_di_container, get_request_id_header
+from app.core.container import Container
 from app.guardrails.base import GuardrailContext
+from app.guardrails.result import ValidationResult
 from app.schemas.requests import ValidateInputRequest, ValidateOutputRequest
 from app.schemas.responses import ValidationResponse, ViolationDetail
 
 router = APIRouter(prefix="/validate", tags=["validation"])
 
 
-def _to_response(result) -> ValidationResponse:  # type: ignore[no-untyped-def]
+def _to_response(result: ValidationResult) -> ValidationResponse:
     return ValidationResponse(
         valid=result.passed,
         violations=[

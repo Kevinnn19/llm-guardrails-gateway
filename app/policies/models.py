@@ -122,7 +122,9 @@ class ProviderEndpointConfig(BaseModel):
 class ProviderConfig(BaseModel):
     primary: ProviderEndpointConfig = Field(default_factory=ProviderEndpointConfig)
     fallbacks: list[ProviderEndpointConfig] = Field(default_factory=list)
-    strategy: Literal["sequential", "random", "lowest_latency", "cheapest"] = "sequential"
+    strategy: Literal[
+        "sequential", "random", "lowest_latency", "cheapest"
+    ] = "sequential"
 
     @model_validator(mode="before")
     @classmethod
