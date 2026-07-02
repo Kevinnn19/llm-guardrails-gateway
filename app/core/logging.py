@@ -3,7 +3,6 @@
 import sys
 from contextvars import ContextVar
 
-import loguru
 from loguru import logger
 
 from app.core.config import get_settings
@@ -26,7 +25,13 @@ def setup_logging() -> None:
     logger.remove()
     logger.add(
         sys.stdout,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{line}</cyan> | req={extra[request_id]} | <level>{message}</level>\n{exception}",
+        format=(
+            "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{name}</cyan>:<cyan>{line}</cyan> | "
+            "req={extra[request_id]} | "
+            "<level>{message}</level>\n{exception}"
+        ),
         level=settings.log_level.upper(),
         colorize=True,
         backtrace=settings.debug,

@@ -235,7 +235,7 @@ class TestLanguageValidator:
         assert self.g.validate("The quick brown fox jumps over the lazy dog.").passed
 
     def test_chinese_blocked_by_default(self) -> None:
-        r = self.g.validate("你好世界，这是测试。")
+        r = self.g.validate("你好世界,这是测试。")
         assert not r.passed
         assert r.violations[0].code == "language_not_allowed"
 
@@ -249,7 +249,7 @@ class TestLanguageValidator:
 
     def test_allow_multiple_languages(self) -> None:
         ctx = GuardrailContext(allowed=["en", "zh"])
-        assert self.g.validate("你好，世界。", ctx).passed
+        assert self.g.validate("你好,世界。", ctx).passed
 
     def test_too_short_passes(self) -> None:
         # Under 10 chars — too short to classify, defaults to pass

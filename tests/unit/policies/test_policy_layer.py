@@ -1,4 +1,6 @@
-"""Unit tests for the policy layer: models, loader, service, and policy-aware validation."""
+"""Unit tests for the policy layer: models, loader, service, and policy-aware
+validation.
+"""
 
 import textwrap
 from pathlib import Path
@@ -215,7 +217,7 @@ class TestPolicyService:
 
     def test_reload_all_missing_dir(self, tmp_path: Path) -> None:
         svc = PolicyService(tmp_path / "nonexistent")
-        loaded, errors = svc.reload_all()
+        loaded, _errors = svc.reload_all()
         assert loaded == []
 
     def test_on_file_change_reloads(self, policy_dir: Path) -> None:

@@ -177,7 +177,7 @@ class TestRetryEngine:
         ctx = RetryContext(prompt="Hello", policy=policy)
         provider = _mock_provider()
 
-        response, result, attempts = await engine.run(ctx, provider)
+        _response, result, attempts = await engine.run(ctx, provider)
 
         assert result.passed
         assert attempts == 2
@@ -319,7 +319,9 @@ class TestGatewayService:
         provider.complete.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_provider_chain_and_metadata_are_recorded_for_primary_response(self) -> None:
+    async def test_provider_chain_and_metadata_recorded_for_primary_response(
+        self,
+    ) -> None:
         policy = Policy.model_validate(
             {
                 "id": "test",
@@ -335,8 +337,13 @@ class TestGatewayService:
                     "prompt_injection": {"enabled": True, "action": "warn"},
                     "toxicity": {"enabled": False},
                 },
-                "output_guardrails": {"toxicity": {"enabled": True, "threshold": 0.3}},
-                "retry": {"max_attempts": 1, "fallback_message": "Sorry, I cannot help."},
+                "output_guardrails": {
+                    "toxicity": {"enabled": True, "threshold": 0.3}
+                },
+                "retry": {
+                    "max_attempts": 1,
+                    "fallback_message": "Sorry, I cannot help.",
+                },
             }
         )
 
@@ -377,7 +384,9 @@ class TestGatewayService:
         assert resp.provider_chain == ["openai"]
 
     @pytest.mark.asyncio
-    async def test_provider_chain_and_metadata_are_recorded_for_fallback_response(self) -> None:
+    async def test_provider_chain_and_metadata_recorded_for_fallback_response(
+        self,
+    ) -> None:
         policy = Policy.model_validate(
             {
                 "id": "test",
@@ -399,8 +408,13 @@ class TestGatewayService:
                     "prompt_injection": {"enabled": True, "action": "warn"},
                     "toxicity": {"enabled": False},
                 },
-                "output_guardrails": {"toxicity": {"enabled": True, "threshold": 0.3}},
-                "retry": {"max_attempts": 1, "fallback_message": "Sorry, I cannot help."},
+                "output_guardrails": {
+                    "toxicity": {"enabled": True, "threshold": 0.3}
+                },
+                "retry": {
+                    "max_attempts": 1,
+                    "fallback_message": "Sorry, I cannot help.",
+                },
             }
         )
 
@@ -465,7 +479,9 @@ class TestGatewayService:
         policy_service.get.return_value = policy
 
         provider_factory = MagicMock()
-        provider_factory.get_provider.return_value = _mock_provider("LLM response content")
+        provider_factory.get_provider.return_value = _mock_provider(
+            "LLM response content"
+        )
 
         input_validator = MagicMock()
         input_validator.validate_with_policy.return_value = ValidationResult.ok()
@@ -474,7 +490,9 @@ class TestGatewayService:
         output_validator.validate_with_policy.return_value = ValidationResult.ok()
 
         orchestrator = MagicMock()
-        orchestrator.execute = AsyncMock(return_value=_provider_response("Orchestrated response"))
+        orchestrator.execute = AsyncMock(
+            return_value=_provider_response("Orchestrated response")
+        )
 
         svc = GatewayService(
             policy_service=policy_service,
@@ -545,9 +563,9 @@ class TestGatewayService:
 
     @pytest.mark.asyncio
     async def test_model_override_in_request(self) -> None:
-        svc, provider = self._make_svc()
+        svc, _provider = self._make_svc()
         req = ChatRequest(prompt="Hello", model="gpt-4-turbo", provider="openai")
-        resp = await svc.chat(req, request_id="test-008")
+        await svc.chat(req, request_id="test-008")
 
         # Provider factory should be called with the overridden model
         call_args = svc._provider_factory.get_provider.call_args[0][0]

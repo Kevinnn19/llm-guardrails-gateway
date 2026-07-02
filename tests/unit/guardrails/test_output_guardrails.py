@@ -75,7 +75,7 @@ class TestOutputToxicityDetector:
 
     def test_toxic_response_fails_default_threshold(self) -> None:
         # score ~0.7 from 2 matches > default 0.85 threshold? Let's use a clear hit
-        r = self.g.validate("You are so stupid and I hate you so much.")
+        self.g.validate("You are so stupid and I hate you so much.")
         # 2 matches: stupid(0.55), hate you(0.7) → score ~0.7, threshold 0.85 → passes
         # Use lower threshold to test blocking
         ctx = GuardrailContext(threshold=0.5)
@@ -118,7 +118,8 @@ class TestPromptLeakageDetector:
         ctx = GuardrailContext(prompt=prompt)
         # Response echoes the first 6 words verbatim
         r = self.g.validate(
-            "Sure! You are a helpful assistant that never reveals secrets, how can I help?",
+            "Sure! You are a helpful assistant that never reveals secrets, "
+            "how can I help?",
             ctx,
         )
         assert not r.passed
@@ -129,7 +130,10 @@ class TestPromptLeakageDetector:
         prompt = (
             "always respond only in formal english and never use casual language please"
         )
-        response = "always respond only in formal english and never use casual language please, as instructed"
+        response = (
+            "always respond only in formal english and never use casual language "
+            "please, as instructed"
+        )
         ctx = GuardrailContext(prompt=prompt, overlap_threshold=0.3)
         r = self.g.validate(response, ctx)
         assert not r.passed
@@ -200,7 +204,8 @@ class TestOffTopicDetector:
             min_overlap=0.1,
         )
         r = self.g.validate(
-            "Chocolate cake recipe: mix flour sugar butter eggs vanilla bake oven degrees",
+            "Chocolate cake recipe: mix flour sugar butter eggs vanilla bake "
+            "oven degrees",
             ctx,
         )
         assert not r.passed

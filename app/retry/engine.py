@@ -79,7 +79,10 @@ class RetryEngine:
             logger.info("retry_attempt attempt={} max={}", attempt, max_attempts)
 
             # Build messages
-            messages = [*ctx.conversation_history, Message(role="user", content=current_prompt)]
+            messages = [
+                *ctx.conversation_history,
+                Message(role="user", content=current_prompt),
+            ]
 
             # Call provider
             request = ProviderRequest(
