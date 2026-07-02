@@ -346,8 +346,7 @@ class TestOutputValidationService:
 
         from app.policies.models import Policy
 
-        raw = yaml.safe_load(
-            textwrap.dedent("""\
+        raw = yaml.safe_load(textwrap.dedent("""\
             id: test
             output_guardrails:
               json_schema:
@@ -363,8 +362,7 @@ class TestOutputValidationService:
                 enabled: false
               hallucination:
                 enabled: false
-        """)
-        )
+        """))
         policy = Policy.model_validate(raw)
         svc = self._make_svc()
         # JSON is invalid but json_schema guardrail disabled → should pass
@@ -376,15 +374,13 @@ class TestOutputValidationService:
 
         from app.policies.models import Policy
 
-        raw = yaml.safe_load(
-            textwrap.dedent("""\
+        raw = yaml.safe_load(textwrap.dedent("""\
             id: test
             output_guardrails:
               toxicity:
                 enabled: true
                 threshold: 0.3
-        """)
-        )
+        """))
         policy = Policy.model_validate(raw)
         svc = OutputValidationService([OutputToxicityDetector()])
         r = svc.validate_with_policy("That is so stupid.", policy)

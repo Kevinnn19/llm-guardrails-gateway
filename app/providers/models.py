@@ -32,10 +32,12 @@ class TokenUsage(BaseModel):
     completion_tokens: int
     total_tokens: int
 
+
 class ProviderAttempt(BaseModel):
     provider: str
     status: str
     reason: str | None = None
+
 
 class ProviderResponse(BaseModel):
     """Normalised LLM response returned to the rest of the gateway."""

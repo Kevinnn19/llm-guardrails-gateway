@@ -85,10 +85,10 @@ class HallucinationGuard(AbstractGuardrail):
                     Violation(
                         guardrail=self.name,
                         code="possible_fabricated_citation",
-                    message=(
-                        f"Possible fabricated citation(s): "
-                        f"{citation_matches[:3]}"
-                    ),
+                        message=(
+                            f"Possible fabricated citation(s): "
+                            f"{citation_matches[:3]}"
+                        ),
                         severity="medium",
                         score=0.65,
                     )

@@ -22,8 +22,7 @@ from app.services.gateway import GatewayService
 
 
 def _make_policy(max_attempts: int = 2, action: str = "block") -> Policy:
-    raw = yaml.safe_load(
-        textwrap.dedent(f"""\
+    raw = yaml.safe_load(textwrap.dedent(f"""\
         id: test
         provider:
           name: openai
@@ -41,8 +40,7 @@ def _make_policy(max_attempts: int = 2, action: str = "block") -> Policy:
         retry:
           max_attempts: {max_attempts}
           fallback_message: "Sorry, I cannot help."
-    """)
-    )
+    """))
     return Policy.model_validate(raw)
 
 
@@ -337,9 +335,7 @@ class TestGatewayService:
                     "prompt_injection": {"enabled": True, "action": "warn"},
                     "toxicity": {"enabled": False},
                 },
-                "output_guardrails": {
-                    "toxicity": {"enabled": True, "threshold": 0.3}
-                },
+                "output_guardrails": {"toxicity": {"enabled": True, "threshold": 0.3}},
                 "retry": {
                     "max_attempts": 1,
                     "fallback_message": "Sorry, I cannot help.",
@@ -413,9 +409,7 @@ class TestGatewayService:
                     "prompt_injection": {"enabled": True, "action": "warn"},
                     "toxicity": {"enabled": False},
                 },
-                "output_guardrails": {
-                    "toxicity": {"enabled": True, "threshold": 0.3}
-                },
+                "output_guardrails": {"toxicity": {"enabled": True, "threshold": 0.3}},
                 "retry": {
                     "max_attempts": 1,
                     "fallback_message": "Sorry, I cannot help.",

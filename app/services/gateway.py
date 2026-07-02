@@ -40,6 +40,7 @@ def _to_violation_details(violations: list[Violation]) -> list[ViolationDetail]:
         for v in violations
     ]
 
+
 class GatewayService:
     """Orchestrates input validation → LLM call → output validation → retry."""
 
@@ -123,8 +124,7 @@ class GatewayService:
 
         # 4. Build conversation messages
         history: list[Message] = [
-            Message(role=m.role, content=m.content)
-            for m in (request.context or [])
+            Message(role=m.role, content=m.content) for m in (request.context or [])
         ]
 
         # 5. First LLM call
