@@ -20,24 +20,13 @@ def set_request_id(request_id: str) -> None:
     _request_id_var.set(request_id)
 
 
-def _formatter(record: dict) -> str:
-    record["extra"].setdefault("request_id", get_request_id())
-    return (
-        "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
-        "<level>{level: <8}</level> | "
-        "<cyan>{name}</cyan>:<cyan>{line}</cyan> | "
-        "req={extra[request_id]} | "
-        "<level>{message}</level>\n{exception}"
-    )
-
-
 def setup_logging() -> None:
     """Configure Loguru for structured console output."""
     settings = get_settings()
     logger.remove()
     logger.add(
         sys.stdout,
-        format=_formatter,
+        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{line}</cyan> | req={extra[request_id]} | <level>{message}</level>\n{exception}",
         level=settings.log_level.upper(),
         colorize=True,
         backtrace=settings.debug,
